@@ -185,7 +185,7 @@ class Flags:
 
         # Set deprecated_env_var_warnings to be fired later after events have been init.
         object.__setattr__(
-            self, "deprecated_env_var_warnings", [x for x in deprecated_env_vars.values()]
+            self, "deprecated_env_var_warnings", list(deprecated_env_vars.values())
         )
 
         # Get the invoked command flags.
@@ -249,9 +249,11 @@ class Flags:
         )
 
         # Support lower cased access for legacy code.
-        params = set(
-            x for x in dir(self) if not callable(getattr(self, x)) and not x.startswith("__")
-        )
+        params = {
+            x
+            for x in dir(self)
+            if not callable(getattr(self, x)) and not x.startswith("__")
+        }
         for param in params:
             object.__setattr__(self, param.lower(), getattr(self, param))
 
@@ -312,7 +314,7 @@ def command_params(command: CliCommand, args_dict: Dict[str, Any]) -> CommandPar
 
     cmd_args = set(command_args(command))
     prnt_args = set(parent_args())
-    default_args = set([x.lower() for x in FLAGS_DEFAULTS.keys()])
+    default_args = {x.lower() for x in FLAGS_DEFAULTS.keys()}
 
     res = command.to_list()
 

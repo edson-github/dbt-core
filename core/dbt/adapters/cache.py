@@ -43,9 +43,7 @@ class _CachedRelation:
         self.inner = inner
 
     def __str__(self) -> str:
-        return ("_CachedRelation(database={}, schema={}, identifier={}, inner={})").format(
-            self.database, self.schema, self.identifier, self.inner
-        )
+        return f"_CachedRelation(database={self.database}, schema={self.schema}, identifier={self.identifier}, inner={self.inner})"
 
     @property
     def database(self) -> Optional[str]:
@@ -255,9 +253,6 @@ class RelationsCache:
         referenced = self.relations.get(referenced_key)
         if referenced is None:
             return
-        if referenced is None:
-            raise ReferencedLinkNotCachedError(referenced_key)
-
         dependent = self.relations.get(dependent_key)
         if dependent is None:
             raise DependentLinkNotCachedError(dependent_key)
@@ -503,10 +498,11 @@ class RelationsCache:
         """Get the relations in a schema. Callers should hold the lock."""
         key = (lowercase(database), lowercase(schema))
 
-        to_remove: List[_CachedRelation] = []
-        for cachekey, relation in self.relations.items():
-            if (cachekey.database, cachekey.schema) == key:
-                to_remove.append(relation)
+        to_remove: List[_CachedRelation] = [
+            relation
+            for cachekey, relation in self.relations.items()
+            if (cachekey.database, cachekey.schema) == key
+        ]
         return to_remove
 
     def _remove_all(self, to_remove: List[_CachedRelation]):

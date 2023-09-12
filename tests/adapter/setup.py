@@ -37,10 +37,7 @@ setup(
     author_email="info@dbtlabs.com",
     url="https://github.com/dbt-labs/dbt-core/tree/main/tests/adapter",
     packages=find_namespace_packages(include=["dbt", "dbt.*"]),
-    install_requires=[
-        "dbt-core=={}".format(package_version),
-        "pytest>=7.0.0",
-    ],
+    install_requires=[f"dbt-core=={package_version}", "pytest>=7.0.0"],
     zip_safe=False,
     classifiers=[
         "Development Status :: 5 - Production/Stable",

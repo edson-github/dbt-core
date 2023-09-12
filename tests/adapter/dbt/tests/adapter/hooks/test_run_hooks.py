@@ -79,23 +79,21 @@ class TestPrePostRunHooks(object):
             "invocation_id",
             "thread_id",
         ]
-        field_list = ", ".join(['"{}"'.format(f) for f in fields])
+        field_list = ", ".join([f'"{f}"' for f in fields])
         query = f"select {field_list} from {project.test_schema}.on_run_hook where test_state = '{state}'"
 
         vals = project.run_sql(query, fetch="all")
         assert len(vals) != 0, "nothing inserted into on_run_hook table"
         assert len(vals) == 1, "too many rows in hooks table"
-        ctx = dict([(k, v) for (k, v) in zip(fields, vals[0])])
-
-        return ctx
+        return dict(list(zip(fields, vals[0])))
 
     def assert_used_schemas(self, project):
-        schemas_query = "select * from {}.schemas".format(project.test_schema)
+        schemas_query = f"select * from {project.test_schema}.schemas"
         results = project.run_sql(schemas_query, fetch="all")
         assert len(results) == 1
         assert results[0][0] == project.test_schema
 
-        db_schemas_query = "select * from {}.db_schemas".format(project.test_schema)
+        db_schemas_query = f"select * from {project.test_schema}.db_schemas"
         results = project.run_sql(db_schemas_query, fetch="all")
         assert len(results) == 1
         assert results[0][0] == project.database

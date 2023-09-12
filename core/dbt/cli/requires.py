@@ -262,6 +262,4 @@ def manifest(*args0, write=True, write_perf_info=False):
 
     # if there are no args, the decorator was used without params @decorator
     # otherwise, the decorator was called with params @decorator(arg)
-    if len(args0) == 0:
-        return outer_wrapper
-    return outer_wrapper(args0[0])
+    return outer_wrapper if not args0 else outer_wrapper(args0[0])

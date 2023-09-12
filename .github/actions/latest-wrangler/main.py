@@ -84,10 +84,7 @@ if __name__ == "__main__":
         if pre_rel:
             return False
         # + no latest tag found = is latest
-        if not remote_latest:
-            return True
-        # + if remote version is lower than current = is latest, else not latest
-        return True if remote_latest <= new_version else False
+        return True if not remote_latest else remote_latest <= new_version
 
     latest = is_latest(pre_rel, new_version, current_latest)
     minor_latest = is_latest(pre_rel, new_version, current_minor_latest)

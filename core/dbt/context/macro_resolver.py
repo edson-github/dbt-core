@@ -57,12 +57,10 @@ class MacroResolver:
     # non-internal packages (that aren't local or root)
     # dbt internal packages
     def _build_macros_by_name(self) -> None:
-        macros_by_name = {}
-
-        # all internal packages (already in the right order)
-        for macro in self.internal_packages_namespace.values():
-            macros_by_name[macro.name] = macro
-
+        macros_by_name = {
+            macro.name: macro
+            for macro in self.internal_packages_namespace.values()
+        }
         # non-internal packages
         for fnamespace in self.packages.values():
             for macro in fnamespace.values():
@@ -90,8 +88,6 @@ class MacroResolver:
         package_namespaces[macro.package_name][macro.name] = macro
 
     def add_macro(self, macro: Macro) -> None:
-        macro_name: str = macro.name
-
         # internal macros (from plugins) will be processed separately from
         # project macros, so store them in a different place
         if macro.package_name in self.internal_package_names:
@@ -101,6 +97,8 @@ class MacroResolver:
             self._add_macro_to(self.packages, macro)
             # add to root_package_macros if it's in the root package
             if macro.package_name == self.root_project_name:
+                macro_name: str = macro.name
+
                 self.root_package_macros[macro_name] = macro
 
     def add_macros(self) -> None:
@@ -127,10 +125,7 @@ class MacroResolver:
 
     def get_macro_id(self, local_package, macro_name) -> Optional[str]:
         macro = self.get_macro(local_package, macro_name)
-        if macro is None:
-            return None
-        else:
-            return macro.unique_id
+        return None if macro is None else macro.unique_id
 
 
 # Currently this is just used by test processing in the schema
@@ -190,5 +185,4 @@ class TestMacroNamespace:
             raise PackageNotFoundForMacroError(package_name)
         if not macro:
             return None
-        macro_func = MacroGenerator(macro, self.ctx, self.node, self.thread_ctx)
-        return macro_func
+        return MacroGenerator(macro, self.ctx, self.node, self.thread_ctx)

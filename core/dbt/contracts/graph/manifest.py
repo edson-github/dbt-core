@@ -77,10 +77,7 @@ def find_unique_id_for_package(storage, key, package: Optional[PackageName]):
     pkg_dct: Mapping[PackageName, UniqueID] = storage[key]
 
     if package is None:
-        if not pkg_dct:
-            return None
-        else:
-            return next(iter(pkg_dct.values()))
+        return None if not pkg_dct else next(iter(pkg_dct.values()))
     elif package in pkg_dct:
         return pkg_dct[package]
     else:
@@ -97,9 +94,7 @@ class DocLookup(dbtClassMixin):
 
     def find(self, key, package: Optional[PackageName], manifest: "Manifest"):
         unique_id = self.get_unique_id(key, package)
-        if unique_id is not None:
-            return self.perform_lookup(unique_id, manifest)
-        return None
+        return None if unique_id is None else self.perform_lookup(unique_id, manifest)
 
     def add_doc(self, doc: Documentation):
         if doc.name not in self.storage:
@@ -128,9 +123,7 @@ class SourceLookup(dbtClassMixin):
 
     def find(self, search_name, package: Optional[PackageName], manifest: "Manifest"):
         unique_id = self.get_unique_id(search_name, package)
-        if unique_id is not None:
-            return self.perform_lookup(unique_id, manifest)
-        return None
+        return None if unique_id is None else self.perform_lookup(unique_id, manifest)
 
     def add_source(self, source: SourceDefinition):
         if source.search_name not in self.storage:
@@ -199,13 +192,11 @@ class RefableLookup(dbtClassMixin):
             ):
                 # Check to see if newer versions are available, and log an "FYI" if so
                 max_version: UnparsedVersion = max(
-                    [
-                        UnparsedVersion(v.version)
-                        for v in manifest.nodes.values()
-                        if isinstance(v, ModelNode)
-                        and v.name == node.name
-                        and v.version is not None
-                    ]
+                    UnparsedVersion(v.version)
+                    for v in manifest.nodes.values()
+                    if isinstance(v, ModelNode)
+                    and v.name == node.name
+                    and v.version is not None
                 )
                 assert node.latest_version is not None  # for mypy, whenever i may find it
                 if max_version > UnparsedVersion(node.latest_version):
@@ -223,18 +214,19 @@ class RefableLookup(dbtClassMixin):
         return None
 
     def add_node(self, node: ManifestNode):
-        if node.resource_type in self._lookup_types:
-            if node.name not in self.storage:
-                self.storage[node.name] = {}
+        if node.resource_type not in self._lookup_types:
+            return
+        if node.name not in self.storage:
+            self.storage[node.name] = {}
 
-            if node.is_versioned:
-                if node.search_name not in self.storage:
-                    self.storage[node.search_name] = {}
-                self.storage[node.search_name][node.package_name] = node.unique_id
-                if node.is_latest_version:  # type: ignore
-                    self.storage[node.name][node.package_name] = node.unique_id
-            else:
+        if node.is_versioned:
+            if node.search_name not in self.storage:
+                self.storage[node.search_name] = {}
+            self.storage[node.search_name][node.package_name] = node.unique_id
+            if node.is_latest_version:  # type: ignore
                 self.storage[node.name][node.package_name] = node.unique_id
+        else:
+            self.storage[node.name][node.package_name] = node.unique_id
 
     def populate(self, manifest):
         for node in manifest.nodes.values():
@@ -256,10 +248,7 @@ class RefableLookup(dbtClassMixin):
         pkg_dct: Mapping[PackageName, UniqueID] = self.storage[key]
 
         if package is None:
-            if not pkg_dct:
-                return []
-            else:
-                return list(pkg_dct.values())
+            return [] if not pkg_dct else list(pkg_dct.values())
         elif package in pkg_dct:
             return [pkg_dct[package]]
         else:
@@ -276,9 +265,7 @@ class MetricLookup(dbtClassMixin):
 
     def find(self, search_name, package: Optional[PackageName], manifest: "Manifest"):
         unique_id = self.get_unique_id(search_name, package)
-        if unique_id is not None:
-            return self.perform_lookup(unique_id, manifest)
-        return None
+        return None if unique_id is None else self.perform_lookup(unique_id, manifest)
 
     def add_metric(self, metric: Metric):
         if metric.search_name not in self.storage:
@@ -318,9 +305,7 @@ class SemanticModelByMeasureLookup(dbtClassMixin):
     ) -> Optional[SemanticModel]:
         """Tries to find a SemanticModel based on a measure name"""
         unique_id = self.get_unique_id(search_name, package)
-        if unique_id is not None:
-            return self.perform_lookup(unique_id, manifest)
-        return None
+        return None if unique_id is None else self.perform_lookup(unique_id, manifest)
 
     def add(self, semantic_model: SemanticModel):
         """Sets all measures for a SemanticModel as paths to the SemanticModel's `unique_id`"""
@@ -384,10 +369,7 @@ class DisabledLookup(dbtClassMixin):
         pkg_dct: Mapping[PackageName, List[Any]] = self.storage[search_name]
 
         if package is None:
-            if not pkg_dct:
-                return None
-            else:
-                return next(iter(pkg_dct.values()))
+            return None if not pkg_dct else next(iter(pkg_dct.values()))
         elif package in pkg_dct:
             return pkg_dct[package]
         else:
@@ -395,7 +377,7 @@ class DisabledLookup(dbtClassMixin):
 
 
 class AnalysisLookup(RefableLookup):
-    _lookup_types: ClassVar[set] = set([NodeType.Analysis])
+    _lookup_types: ClassVar[set] = {NodeType.Analysis}
     _versioned_types: ClassVar[set] = set()
 
 
@@ -483,7 +465,7 @@ def build_node_edges(nodes: List[ManifestNode]):
     for node in nodes:
         backward_edges[node.unique_id] = node.depends_on_nodes[:]
         for unique_id in backward_edges[node.unique_id]:
-            if unique_id in forward_edges.keys():
+            if unique_id in forward_edges:
                 forward_edges[unique_id].append(node.unique_id)
     return _sort_values(forward_edges), _sort_values(backward_edges)
 
@@ -495,7 +477,7 @@ def build_macro_edges(nodes: List[Any]):
     }
     for node in nodes:
         for unique_id in node.depends_on_macros:
-            if unique_id in forward_edges.keys():
+            if unique_id in forward_edges:
                 forward_edges[unique_id].append(node.unique_id)
     return _sort_values(forward_edges)
 
@@ -523,11 +505,7 @@ class MacroCandidate:
     def __lt__(self, other: object) -> bool:
         if not isinstance(other, MacroCandidate):
             return NotImplemented
-        if self.locality < other.locality:
-            return True
-        if self.locality > other.locality:
-            return False
-        return False
+        return self.locality < other.locality
 
 
 @dataclass
@@ -562,11 +540,7 @@ class MaterializationCandidate(MacroCandidate):
             return True
         if self.specificity < other.specificity:
             return False
-        if self.locality < other.locality:
-            return True
-        if self.locality > other.locality:
-            return False
-        return False
+        return self.locality < other.locality
 
 
 M = TypeVar("M", bound=MacroCandidate)
@@ -931,8 +905,7 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
                 self.macros.values(),
             )
         )
-        forward_edges = build_macro_edges(edge_members)
-        return forward_edges
+        return build_macro_edges(edge_members)
 
     def build_group_map(self):
         groupable_nodes = list(
@@ -987,7 +960,7 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
         else:
             # something terrible has happened
             raise dbt.exceptions.DbtInternalError(
-                "Expected node {} not found in manifest".format(unique_id)
+                f"Expected node {unique_id} not found in manifest"
             )
 
     @property
@@ -1095,9 +1068,7 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
             if disabled is None:
                 disabled = self.disabled_lookup.find(target_model_name, pkg, target_model_version)
 
-        if disabled:
-            return Disabled(disabled[0])
-        return None
+        return Disabled(disabled[0]) if disabled else None
 
     # Called by dbt.parser.manifest._resolve_sources_for_exposure
     # and dbt.parser.manifest._process_source_for_node
@@ -1124,9 +1095,7 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
                     f"{target_source_name}.{target_table_name}", pkg
                 )
 
-        if disabled:
-            return Disabled(disabled[0])
-        return None
+        return Disabled(disabled[0]) if disabled else None
 
     def resolve_metric(
         self,
@@ -1149,9 +1118,7 @@ class Manifest(MacroMethods, DataClassMessagePackMixin, dbtClassMixin):
             # it's possible that the node is disabled
             if disabled is None:
                 disabled = self.disabled_lookup.find(f"{target_metric_name}", pkg)
-        if disabled:
-            return Disabled(disabled[0])
-        return None
+        return Disabled(disabled[0]) if disabled else None
 
     def resolve_semantic_model_for_measure(
         self,
@@ -1495,7 +1462,7 @@ class WritableManifest(ArtifactMixin):
     )
 
     @classmethod
-    def compatible_previous_versions(self):
+    def compatible_previous_versions(cls):
         return [
             ("manifest", 4),
             ("manifest", 5),
@@ -1525,18 +1492,19 @@ class WritableManifest(ArtifactMixin):
 
 
 def get_manifest_schema_version(dct: dict) -> int:
-    schema_version = dct.get("metadata", {}).get("dbt_schema_version", None)
-    if not schema_version:
+    if schema_version := dct.get("metadata", {}).get(
+        "dbt_schema_version", None
+    ):
+        # schema_version is in this format: https://schemas.getdbt.com/dbt/manifest/v10.json
+        # What the code below is doing:
+        # 1. Split on "/" – v10.json
+        # 2. Split on "." – v10
+        # 3. Skip first character – 10
+        # 4. Convert to int
+        # TODO: If this gets more complicated, turn into a regex
+        return int(schema_version.split("/")[-1].split(".")[0][1:])
+    else:
         raise ValueError("Manifest doesn't have schema version")
-
-    # schema_version is in this format: https://schemas.getdbt.com/dbt/manifest/v10.json
-    # What the code below is doing:
-    # 1. Split on "/" – v10.json
-    # 2. Split on "." – v10
-    # 3. Skip first character – 10
-    # 4. Convert to int
-    # TODO: If this gets more complicated, turn into a regex
-    return int(schema_version.split("/")[-1].split(".")[0][1:])
 
 
 def _check_duplicates(value: BaseNode, src: Mapping[str, BaseNode]):
@@ -1551,7 +1519,6 @@ V_T = TypeVar("V_T")
 def _expect_value(key: K_T, src: Mapping[K_T, V_T], old_file: SourceFile, name: str) -> V_T:
     if key not in src:
         raise CompilationError(
-            'Expected to find "{}" in cached "result.{}" based '
-            "on cached file information: {}!".format(key, name, old_file)
+            f'Expected to find "{key}" in cached "result.{name}" based on cached file information: {old_file}!'
         )
     return src[key]

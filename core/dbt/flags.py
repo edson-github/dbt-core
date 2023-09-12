@@ -12,9 +12,7 @@ def env_set_truthy(key: str) -> Optional[str]:
     otherwise.
     """
     value = os_getenv(key)
-    if not value or value.lower() in ("0", "false", "f"):
-        return None
-    return value
+    return None if not value or value.lower() in ("0", "false", "f") else value
 
 
 # for setting up logger for legacy logger

@@ -98,8 +98,7 @@ class DBTClick(Directive):
         click_group = load_module(module, self.error)
         if type(click_group) is not click.Group:
             raise self.error('Type "click.Group" not supported in dbt_click extension')
-        cmd_strs = [cmd for cmd in click_group.commands]
-        cmd_strs.sort()
+        cmd_strs = sorted(click_group.commands)
         cmds = []
         for cmd_str in cmd_strs:
             cmd = click_group.commands.get(cmd_str)

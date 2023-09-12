@@ -122,9 +122,7 @@ def _(path: str) -> None:
             os.makedirs(path)
 
         except OSError as e:
-            if e.errno == errno.EEXIST:
-                pass
-            else:
+            if e.errno != errno.EEXIST:
                 raise e
 
 
@@ -167,28 +165,22 @@ def write_file(path: str, contents: str = "") -> bool:
     try:
         make_directory(os.path.dirname(path))
         with open(path, "w", encoding="utf-8") as f:
-            f.write(str(contents))
+            f.write(contents)
     except Exception as exc:
-        # note that you can't just catch FileNotFound, because sometimes
-        # windows apparently raises something else.
-        # It's also not sufficient to look at the path length, because
-        # sometimes windows fails to write paths that are less than the length
-        # limit. So on windows, suppress all errors that happen from writing
-        # to disk.
-        if os.name == "nt":
+        if os.name != "nt":
+            raise
             # sometimes we get a winerror of 3 which means the path was
             # definitely too long, but other times we don't and it means the
             # path was just probably too long. This is probably based on the
             # windows/python version.
-            if getattr(exc, "winerror", 0) == 3:
-                reason = "Path was too long"
-            else:
-                reason = "Path was possibly too long"
-            # all our hard work and the path was still too long. Log and
-            # continue.
-            fire_event(SystemCouldNotWrite(path=path, reason=reason, exc=str(exc)))
-        else:
-            raise
+        reason = (
+            "Path was too long"
+            if getattr(exc, "winerror", 0) == 3
+            else "Path was possibly too long"
+        )
+        # all our hard work and the path was still too long. Log and
+        # continue.
+        fire_event(SystemCouldNotWrite(path=path, reason=reason, exc=str(exc)))
     return True
 
 
@@ -227,11 +219,7 @@ def rmdir(path: str) -> None:
     cloned via git) can cause rmtree to throw a PermissionError exception
     """
     path = convert_path(path)
-    if sys.platform == "win32":
-        onerror = _windows_rmdir_readonly
-    else:
-        onerror = None
-
+    onerror = _windows_rmdir_readonly if sys.platform == "win32" else None
     shutil.rmtree(path, onerror=onerror)
 
 
@@ -263,22 +251,16 @@ def _win_prepare_path(path: str) -> str:
 def _supports_long_paths() -> bool:
     if sys.platform != "win32":
         return True
-    # Eryk Sun says to use `WinDLL('ntdll')` instead of `windll.ntdll` because
-    # of pointer caching in a comment here:
-    # https://stackoverflow.com/a/35097999/11262881
-    # I don't know exaclty what he means, but I am inclined to believe him as
-    # he's pretty active on Python windows bugs!
-    else:
-        try:
-            dll = WinDLL("ntdll")
-        except OSError:  # I don't think this happens? you need ntdll to run python
-            return False
-        # not all windows versions have it at all
-        if not hasattr(dll, "RtlAreLongPathsEnabled"):
-            return False
-        # tell windows we want to get back a single unsigned byte (a bool).
-        dll.RtlAreLongPathsEnabled.restype = c_bool
-        return dll.RtlAreLongPathsEnabled()
+    try:
+        dll = WinDLL("ntdll")
+    except OSError:  # I don't think this happens? you need ntdll to run python
+        return False
+    # not all windows versions have it at all
+    if not hasattr(dll, "RtlAreLongPathsEnabled"):
+        return False
+    # tell windows we want to get back a single unsigned byte (a bool).
+    dll.RtlAreLongPathsEnabled.restype = c_bool
+    return dll.RtlAreLongPathsEnabled()
 
 
 def convert_path(path: str) -> str:
@@ -343,7 +325,7 @@ def _handle_posix_cwd_error(exc: OSError, cwd: str, cmd: List[str]) -> NoReturn:
     elif exc.errno == errno.ENOTDIR:
         message = "Not a directory"
     else:
-        message = "Unknown OSError: {} - cwd".format(str(exc))
+        message = f"Unknown OSError: {str(exc)} - cwd"
     raise dbt.exceptions.WorkingDirectoryError(cwd, cmd, message)
 
 
@@ -353,7 +335,7 @@ def _handle_posix_cmd_error(exc: OSError, cwd: str, cmd: List[str]) -> NoReturn:
     elif exc.errno == errno.EACCES:
         message = "User does not have permissions for this command"
     else:
-        message = "Unknown OSError: {} - cmd".format(str(exc))
+        message = f"Unknown OSError: {str(exc)} - cmd"
     raise dbt.exceptions.ExecutableError(cwd, cmd, message)
 
 
@@ -402,15 +384,13 @@ def _handle_windows_error(exc: OSError, cwd: str, cmd: List[str]) -> NoReturn:
         )
         cls = dbt.exceptions.WorkingDirectoryError
     else:
-        message = 'Unknown error: {} (errno={}: "{}")'.format(
-            str(exc), exc.errno, errno.errorcode.get(exc.errno, "<Unknown!>")
-        )
+        message = f'Unknown error: {str(exc)} (errno={exc.errno}: "{errno.errorcode.get(exc.errno, "<Unknown!>")}")'
     raise cls(cwd, cmd, message)
 
 
 def _interpret_oserror(exc: OSError, cwd: str, cmd: List[str]) -> NoReturn:
     """Interpret an OSError exception and raise the appropriate dbt exception."""
-    if len(cmd) == 0:
+    if not cmd:
         raise dbt.exceptions.CommandError(cwd, cmd)
 
     # all of these functions raise unconditionally
@@ -421,13 +401,13 @@ def _interpret_oserror(exc: OSError, cwd: str, cmd: List[str]) -> NoReturn:
 
     # this should not be reachable, raise _something_ at least!
     raise dbt.exceptions.DbtInternalError(
-        "Unhandled exception in _interpret_oserror: {}".format(exc)
+        f"Unhandled exception in _interpret_oserror: {exc}"
     )
 
 
 def run_cmd(cwd: str, cmd: List[str], env: Optional[Dict[str, Any]] = None) -> Tuple[bytes, bytes]:
     fire_event(SystemExecutingCmd(cmd=cmd))
-    if len(cmd) == 0:
+    if not cmd:
         raise dbt.exceptions.CommandError(cwd, cmd)
 
     # the env argument replaces the environment entirely, which has exciting
@@ -435,11 +415,10 @@ def run_cmd(cwd: str, cmd: List[str], env: Optional[Dict[str, Any]] = None) -> T
     full_env = env
     if env is not None:
         full_env = os.environ.copy()
-        full_env.update(env)
+        full_env |= env
 
     try:
-        exe_pth = shutil.which(cmd[0])
-        if exe_pth:
+        if exe_pth := shutil.which(cmd[0]):
             cmd = [os.path.abspath(exe_pth)] + list(cmd[1:])
         proc = subprocess.Popen(
             cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=full_env
@@ -543,7 +522,7 @@ def move(src, dst):
 
         dst = os.path.join(dst, os.path.basename(src.rstrip("/\\")))
         if os.path.exists(dst):
-            raise EnvironmentError("Path '{}' already exists".format(dst))
+            raise EnvironmentError(f"Path '{dst}' already exists")
 
     try:
         os.rename(src, dst)
@@ -552,9 +531,7 @@ def move(src, dst):
         if os.path.isdir(src):
             if _absnorm(dst + "\\").startswith(_absnorm(src + "\\")):
                 # dst is inside src
-                raise EnvironmentError(
-                    "Cannot move a directory '{}' into itself '{}'".format(src, dst)
-                )
+                raise EnvironmentError(f"Cannot move a directory '{src}' into itself '{dst}'")
             shutil.copytree(src, dst, symlinks=True)
             rmtree(src)
         else:

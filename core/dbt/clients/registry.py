@@ -26,9 +26,9 @@ else:
 def _get_url(name, registry_base_url=None):
     if registry_base_url is None:
         registry_base_url = DEFAULT_REGISTRY_BASE_URL
-    url = "api/v1/{}.json".format(name)
+    url = f"api/v1/{name}.json"
 
-    return "{}{}".format(registry_base_url, url)
+    return f"{registry_base_url}{url}"
 
 
 def _get_with_retries(package_name, registry_base_url=None):
@@ -80,9 +80,9 @@ def _get(package_name, registry_base_url=None):
         fire_event(RegistryResponseMissingNestedKeys(response=response))
         raise requests.exceptions.ContentDecodingError(error_msg, response=resp)
 
-    # all version responses should contain identical keys.
-    has_extra_keys = set().difference(*(response["versions"][d] for d in response["versions"]))
-    if has_extra_keys:
+    if has_extra_keys := set().difference(
+        *(response["versions"][d] for d in response["versions"])
+    ):
         error_msg = (
             "Request error: Keys for all versions do not match.  Found extra key(s) "
             f"of {has_extra_keys}."
@@ -127,11 +127,7 @@ def package_version(package_name, version, registry_base_url=None) -> Dict[str, 
 
 
 def is_compatible_version(package_spec, dbt_version) -> bool:
-    require_dbt_version = package_spec.get("require_dbt_version")
-    if not require_dbt_version:
-        # if version requirements are missing or empty, assume any version is compatible
-        return True
-    else:
+    if require_dbt_version := package_spec.get("require_dbt_version"):
         # determine whether dbt_version satisfies this package's require-dbt-version config
         if not isinstance(require_dbt_version, list):
             require_dbt_version = [require_dbt_version]
@@ -139,6 +135,9 @@ def is_compatible_version(package_spec, dbt_version) -> bool:
             semver.VersionSpecifier.from_version_string(v) for v in require_dbt_version
         ]
         return semver.versions_compatible(dbt_version, *supported_versions)
+    else:
+        # if version requirements are missing or empty, assume any version is compatible
+        return True
 
 
 def get_compatible_versions(package_name, dbt_version, should_version_check) -> List["str"]:
@@ -149,14 +148,12 @@ def get_compatible_versions(package_name, dbt_version, should_version_check) -> 
     if not should_version_check:
         return list(response)
 
-    # otherwise, only return versions that are compatible with the installed version of dbt-core
     else:
-        compatible_versions = [
+        return [
             pkg_version
             for pkg_version, info in response.items()
             if is_compatible_version(info, dbt_version)
         ]
-        return compatible_versions
 
 
 def _get_index(registry_base_url=None):

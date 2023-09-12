@@ -21,16 +21,14 @@ COLOR_RESET_ALL = COLORS["reset_all"]
 
 def color(text: str, color_code: str) -> str:
     if get_flags().USE_COLORS:
-        return "{}{}{}".format(color_code, text, COLOR_RESET_ALL)
+        return f"{color_code}{text}{COLOR_RESET_ALL}"
     else:
         return text
 
 
 def printer_width() -> int:
     flags = get_flags()
-    if flags.PRINTER_WIDTH:
-        return flags.PRINTER_WIDTH
-    return 80
+    return flags.PRINTER_WIDTH if flags.PRINTER_WIDTH else 80
 
 
 def green(text: str) -> str:

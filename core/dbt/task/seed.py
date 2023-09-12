@@ -23,7 +23,7 @@ from dbt.contracts.results import NodeStatus
 
 class SeedRunner(ModelRunner):
     def describe_node(self):
-        return "seed file {}".format(self.get_node_representation())
+        return f"seed file {self.get_node_representation()}"
 
     def before_execute(self):
         fire_event(
@@ -96,7 +96,7 @@ class SeedTask(RunTask):
         schema = result.node.schema
         alias = result.node.alias
 
-        header = "Random sample of table: {}.{}".format(schema, alias)
+        header = f"Random sample of table: {schema}.{alias}"
         with TextOnly():
             fire_event(Formatting(""))
         fire_event(SeedHeader(header=header))

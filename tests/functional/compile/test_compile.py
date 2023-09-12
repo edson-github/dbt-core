@@ -25,14 +25,14 @@ def norm_whitespace(string):
 
 
 def get_lines(model_name):
-    f = read_file("target", "compiled", "test", "models", model_name + ".sql")
+    f = read_file("target", "compiled", "test", "models", f"{model_name}.sql")
     return [line for line in f.splitlines() if line]
 
 
 def file_exists(model_name):
     from dbt.tests.util import file_exists
 
-    return file_exists("target", "compiled", "test", "models", model_name + ".sql")
+    return file_exists("target", "compiled", "test", "models", f"{model_name}.sql")
 
 
 class TestIntrospectFlag:

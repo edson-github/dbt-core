@@ -364,8 +364,8 @@ class BaseIncrementalUniqueKey:
         # pass on kwarg
         relation = incremental_model
         # update seed in anticipation of incremental model update
-        row_count_query = "select * from {}.{}".format(project.test_schema, seed)
-        project.run_sql_file(Path("seeds") / Path(update_sql_file + ".sql"))
+        row_count_query = f"select * from {project.test_schema}.{seed}"
+        project.run_sql_file(Path("seeds") / Path(f"{update_sql_file}.sql"))
         seed_rows = len(project.run_sql(row_count_query, fetch="all"))
 
         # propagate seed state to incremental model according to unique keys

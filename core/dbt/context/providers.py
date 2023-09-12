@@ -126,12 +126,7 @@ class BaseDatabaseWrapper:
         return self._adapter.commit_if_has_connection()
 
     def _get_adapter_macro_prefixes(self) -> List[str]:
-        # order matters for dispatch:
-        #  1. current adapter
-        #  2. any parent adapters (dependencies)
-        #  3. 'default'
-        search_prefixes = get_adapter_type_names(self._adapter.type()) + ["default"]
-        return search_prefixes
+        return get_adapter_type_names(self._adapter.type()) + ["default"]
 
     def _get_search_packages(self, namespace: Optional[str] = None) -> List[Optional[str]]:
         search_packages: List[Optional[str]] = [None]
@@ -139,10 +134,11 @@ class BaseDatabaseWrapper:
         if namespace is None:
             search_packages = [None]
         elif isinstance(namespace, str):
-            macro_search_order = self._adapter.config.get_macro_search_order(namespace)
-            if macro_search_order:
+            if macro_search_order := self._adapter.config.get_macro_search_order(
+                namespace
+            ):
                 search_packages = macro_search_order
-            elif not macro_search_order and namespace in self._adapter.config.dependencies:
+            elif namespace in self._adapter.config.dependencies:
                 search_packages = [self.config.project_name, namespace]
         else:
             raise CompilationError(
@@ -296,10 +292,7 @@ class BaseMetricResolver(BaseResolver):
         ...
 
     def _repack_args(self, name: str, package: Optional[str]) -> List[str]:
-        if package is None:
-            return [name]
-        else:
-            return [package, name]
+        return [name] if package is None else [package, name]
 
     def validate_args(self, name: str, package: Optional[str]):
         if not isinstance(name, str):
@@ -347,9 +340,9 @@ class ParseConfigObject(Config):
         return config
 
     def __call__(self, *args, **kwargs):
-        if len(args) == 1 and len(kwargs) == 0:
+        if len(args) == 1 and not kwargs:
             opts = args[0]
-        elif len(args) == 0 and len(kwargs) > 0:
+        elif not args and len(kwargs) > 0:
             opts = kwargs
         else:
             raise InlineModelConfigError(node=self.model)
@@ -449,7 +442,7 @@ class ParseDatabaseWrapper(BaseDatabaseWrapper):
             return getattr(self._adapter, name)
         else:
             raise AttributeError(
-                "'{}' object has no attribute '{}'".format(self.__class__.__name__, name)
+                f"'{self.__class__.__name__}' object has no attribute '{name}'"
             )
 
 
@@ -463,7 +456,7 @@ class RuntimeDatabaseWrapper(BaseDatabaseWrapper):
             return getattr(self._adapter, name)
         else:
             raise AttributeError(
-                "'{}' object has no attribute '{}'".format(self.__class__.__name__, name)
+                f"'{self.__class__.__name__}' object has no attribute '{name}'"
             )
 
 
@@ -529,11 +522,10 @@ class RuntimeRefResolver(BaseRefResolver):
         return self.create_relation(target_model)
 
     def create_relation(self, target_model: ManifestNode) -> RelationProxy:
-        if target_model.is_ephemeral_model:
-            self.model.set_cte(target_model.unique_id, None)
-            return self.Relation.create_ephemeral_from_node(self.config, target_model)
-        else:
+        if not target_model.is_ephemeral_model:
             return self.Relation.create_from(self.config, target_model)
+        self.model.set_cte(target_model.unique_id, None)
+        return self.Relation.create_ephemeral_from_node(self.config, target_model)
 
     def validate(
         self,
@@ -768,24 +760,23 @@ class ProviderContext(ManifestContext):
 
     @contextmember()
     def load_result(self, name: str) -> Optional[AttrDict]:
-        if name in self.sql_results:
-            # handle the special case of "main" macro
-            # See: https://github.com/dbt-labs/dbt-core/blob/ada8860e48b32ac712d92e8b0977b2c3c9749981/core/dbt/task/run.py#L228
-            if name == "main":
-                return self.sql_results["main"]
-
-            # handle a None, which indicates this name was populated but has since been loaded
-            elif self.sql_results[name] is None:
-                raise MacroResultAlreadyLoadedError(name)
-
-            # Handle the regular use case
-            else:
-                ret_val = self.sql_results[name]
-                self.sql_results[name] = None
-                return ret_val
-        else:
+        if name not in self.sql_results:
             # Handle trying to load a result that was never stored
             return None
+        # handle the special case of "main" macro
+        # See: https://github.com/dbt-labs/dbt-core/blob/ada8860e48b32ac712d92e8b0977b2c3c9749981/core/dbt/task/run.py#L228
+        if name == "main":
+            return self.sql_results["main"]
+
+        # handle a None, which indicates this name was populated but has since been loaded
+        elif self.sql_results[name] is None:
+            raise MacroResultAlreadyLoadedError(name)
+
+        # Handle the regular use case
+        else:
+            ret_val = self.sql_results[name]
+            self.sql_results[name] = None
+            return ret_val
 
     @contextmember()
     def store_result(
@@ -1277,34 +1268,31 @@ class ProviderContext(ManifestContext):
         elif default is not None:
             return_value = default
 
-        if return_value is not None:
+        if return_value is None:
+            raise EnvVarMissingError(var)
             # Save the env_var value in the manifest and the var name in the source_file.
             # If this is compiling, do not save because it's irrelevant to parsing.
-            compiling = (
-                True
-                if hasattr(self.model, "compiled")
-                and getattr(self.model, "compiled", False) is True
-                else False
+        compiling = bool(
+            hasattr(self.model, "compiled")
+            and getattr(self.model, "compiled", False) is True
+        )
+        if self.model and not compiling:
+            # If the environment variable is set from a default, store a string indicating
+            # that so we can skip partial parsing.  Otherwise the file will be scheduled for
+            # reparsing. If the default changes, the file will have been updated and therefore
+            # will be scheduled for reparsing anyways.
+            self.manifest.env_vars[var] = (
+                return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
             )
-            if self.model and not compiling:
-                # If the environment variable is set from a default, store a string indicating
-                # that so we can skip partial parsing.  Otherwise the file will be scheduled for
-                # reparsing. If the default changes, the file will have been updated and therefore
-                # will be scheduled for reparsing anyways.
-                self.manifest.env_vars[var] = (
-                    return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
-                )
 
-                # hooks come from dbt_project.yml which doesn't have a real file_id
-                if self.model.file_id in self.manifest.files:
-                    source_file = self.manifest.files[self.model.file_id]
-                    # Schema files should never get here
-                    if source_file.parse_file_type != "schema":
-                        # TODO CT-211
-                        source_file.env_vars.append(var)  # type: ignore[union-attr]
-            return return_value
-        else:
-            raise EnvVarMissingError(var)
+            # hooks come from dbt_project.yml which doesn't have a real file_id
+            if self.model.file_id in self.manifest.files:
+                source_file = self.manifest.files[self.model.file_id]
+                # Schema files should never get here
+                if source_file.parse_file_type != "schema":
+                    # TODO CT-211
+                    source_file.env_vars.append(var)  # type: ignore[union-attr]
+        return return_value
 
     @contextproperty()
     def selected_resources(self) -> List[str]:
@@ -1378,18 +1366,16 @@ class ModelContext(ProviderContext):
 
     @contextproperty()
     def sql(self) -> Optional[str]:
-        # only doing this in sql model for backward compatible
-        if self.model.language == ModelLanguage.sql:  # type: ignore[union-attr]
-            # If the model is deferred and the adapter doesn't support zero-copy cloning, then select * from the prod
-            # relation
-            if getattr(self.model, "defer_relation", None):
-                # TODO https://github.com/dbt-labs/dbt-core/issues/7976
-                return f"select * from {self.model.defer_relation.relation_name or str(self.defer_relation)}"  # type: ignore[union-attr]
-            elif getattr(self.model, "extra_ctes_injected", None):
-                # TODO CT-211
-                return self.model.compiled_code  # type: ignore[union-attr]
-            else:
-                return None
+        if self.model.language != ModelLanguage.sql:
+            return None
+        # If the model is deferred and the adapter doesn't support zero-copy cloning, then select * from the prod
+        # relation
+        if getattr(self.model, "defer_relation", None):
+            # TODO https://github.com/dbt-labs/dbt-core/issues/7976
+            return f"select * from {self.model.defer_relation.relation_name or str(self.defer_relation)}"  # type: ignore[union-attr]
+        elif getattr(self.model, "extra_ctes_injected", None):
+            # TODO CT-211
+            return self.model.compiled_code  # type: ignore[union-attr]
         else:
             return None
 
@@ -1643,17 +1629,15 @@ class TestContext(ProviderContext):
     # 'depends_on.macros' by using the TestMacroNamespace
     def _build_test_namespace(self):
         depends_on_macros = []
-        # all generic tests use a macro named 'get_where_subquery' to wrap 'model' arg
-        # see generic_test_builders.build_model_str
-        get_where_subquery = self.macro_resolver.macros_by_name.get("get_where_subquery")
-        if get_where_subquery:
+        if get_where_subquery := self.macro_resolver.macros_by_name.get(
+            "get_where_subquery"
+        ):
             depends_on_macros.append(get_where_subquery.unique_id)
         if self.model.depends_on and self.model.depends_on.macros:
             depends_on_macros.extend(self.model.depends_on.macros)
         lookup_macros = depends_on_macros.copy()
         for macro_unique_id in lookup_macros:
-            lookup_macro = self.macro_resolver.macros.get(macro_unique_id)
-            if lookup_macro:
+            if lookup_macro := self.macro_resolver.macros.get(macro_unique_id):
                 depends_on_macros.extend(lookup_macro.depends_on.macros)
 
         macro_namespace = TestMacroNamespace(
@@ -1671,27 +1655,26 @@ class TestContext(ProviderContext):
         elif default is not None:
             return_value = default
 
-        if return_value is not None:
-            # Save the env_var value in the manifest and the var name in the source_file
-            if self.model:
-                # If the environment variable is set from a default, store a string indicating
-                # that so we can skip partial parsing.  Otherwise the file will be scheduled for
-                # reparsing. If the default changes, the file will have been updated and therefore
-                # will be scheduled for reparsing anyways.
-                self.manifest.env_vars[var] = (
-                    return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
-                )
-                # the "model" should only be test nodes, but just in case, check
-                # TODO CT-211
-                if self.model.resource_type == NodeType.Test and self.model.file_key_name:  # type: ignore[union-attr] # noqa
-                    source_file = self.manifest.files[self.model.file_id]
-                    # TODO CT-211
-                    (yaml_key, name) = self.model.file_key_name.split(".")  # type: ignore[union-attr] # noqa
-                    # TODO CT-211
-                    source_file.add_env_var(var, yaml_key, name)  # type: ignore[union-attr]
-            return return_value
-        else:
+        if return_value is None:
             raise EnvVarMissingError(var)
+        # Save the env_var value in the manifest and the var name in the source_file
+        if self.model:
+            # If the environment variable is set from a default, store a string indicating
+            # that so we can skip partial parsing.  Otherwise the file will be scheduled for
+            # reparsing. If the default changes, the file will have been updated and therefore
+            # will be scheduled for reparsing anyways.
+            self.manifest.env_vars[var] = (
+                return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
+            )
+            # the "model" should only be test nodes, but just in case, check
+            # TODO CT-211
+            if self.model.resource_type == NodeType.Test and self.model.file_key_name:  # type: ignore[union-attr] # noqa
+                source_file = self.manifest.files[self.model.file_id]
+                # TODO CT-211
+                (yaml_key, name) = self.model.file_key_name.split(".")  # type: ignore[union-attr] # noqa
+                # TODO CT-211
+                source_file.add_env_var(var, yaml_key, name)  # type: ignore[union-attr]
+        return return_value
 
 
 def generate_test_context(

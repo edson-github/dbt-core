@@ -365,7 +365,7 @@ def run_and_generate(project, args=None):
 class BaseGenerateProject:
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, project):
-        alternate_schema_name = project.test_schema + "_test"
+        alternate_schema_name = f"{project.test_schema}_test"
         project.create_test_schema(schema_name=alternate_schema_name)
         os.environ["DBT_ENV_CUSTOM_ENV_env_key"] = "env_value"
         assets = {"lorem-ipsum.txt": "Lorem ipsum dolor sit amet"}
@@ -392,7 +392,7 @@ class BaseGenerateProject:
 
     @pytest.fixture(scope="class")
     def project_config_update(self, unique_schema):
-        alternate_schema = unique_schema + "_test"
+        alternate_schema = f"{unique_schema}_test"
         return {
             "asset-paths": ["assets", "invalid-asset-paths"],
             "vars": {

@@ -68,12 +68,12 @@ def filesystem_search(
     extension: str,
     ignore_spec: Optional[PathSpec] = None,
 ):
-    ext = "[!.#~]*" + extension
+    ext = f"[!.#~]*{extension}"
     root = project.project_root
     file_path_list = []
     for result in find_matching(root, relative_dirs, ext, ignore_spec):
         if "searched_path" not in result or "relative_path" not in result:
-            raise DbtInternalError("Invalid result from find_matching: {}".format(result))
+            raise DbtInternalError(f"Invalid result from find_matching: {result}")
         file_match = FilePath(
             searched_path=result["searched_path"],
             relative_path=result["relative_path"],

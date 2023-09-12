@@ -389,7 +389,7 @@ class TestModelLevelContractErrorMessages:
 
         exc_str = " ".join(str(err_info.value).split())
         expected_materialization_error = "Invalid value for on_schema_change: ignore. Models materialized as incremental with contracts enabled must set on_schema_change to 'append_new_columns' or 'fail'"
-        assert expected_materialization_error in str(exc_str)
+        assert expected_materialization_error in exc_str
 
 
 class TestModelLevelConstraintsErrorMessages:
@@ -406,10 +406,10 @@ class TestModelLevelConstraintsErrorMessages:
 
         exc_str = " ".join(str(err_info.value).split())
         expected_materialization_error = "Language Error: Expected 'sql' but found 'python'"
-        assert expected_materialization_error in str(exc_str)
+        assert expected_materialization_error in exc_str
         # This is a compile time error and we won't get here because the materialization check is parse time
         expected_empty_data_type_error = "Columns with `data_type` Blank/Null not allowed on contracted models. Columns Blank/Null: ['date_day']"
-        assert expected_empty_data_type_error not in str(exc_str)
+        assert expected_empty_data_type_error not in exc_str
 
 
 class TestModelLevelConstraintsWarningMessages:
@@ -453,7 +453,7 @@ class TestSchemaContractEnabledConfigs:
 
         exc_str = " ".join(str(err_info.value).split())
         schema_error_expected = "Constraints must be defined in a `yml` schema configuration file"
-        assert schema_error_expected in str(exc_str)
+        assert schema_error_expected in exc_str
 
 
 class TestPythonModelLevelContractErrorMessages:

@@ -24,12 +24,8 @@ class CloneRunner(BaseRunner):
 
     def _build_run_model_result(self, model, context):
         result = context["load_result"]("main")
-        if result:
-            status = RunStatus.Success
-            message = str(result.response)
-        else:
-            status = RunStatus.Success
-            message = "No-op"
+        message = str(result.response) if result else "No-op"
+        status = RunStatus.Success
         adapter_response = {}
         if result and isinstance(result.response, dbtClassMixin):
             adapter_response = result.response.to_dict(omit_none=True)
@@ -50,19 +46,13 @@ class CloneRunner(BaseRunner):
 
     def _materialization_relations(self, result: Any, model) -> List[BaseRelation]:
         if isinstance(result, str):
-            msg = (
-                'The materialization ("{}") did not explicitly return a '
-                "list of relations to add to the cache.".format(str(model.get_materialization()))
-            )
+            msg = f'The materialization ("{str(model.get_materialization())}") did not explicitly return a list of relations to add to the cache.'
             raise CompilationError(msg, node=model)
 
         if isinstance(result, dict):
             return _validate_materialization_relations_dict(result, model)
 
-        msg = (
-            "Invalid return value from materialization, expected a dict "
-            'with key "relations", got: {}'.format(str(result))
-        )
+        msg = f'Invalid return value from materialization, expected a dict with key "relations", got: {str(result)}'
         raise CompilationError(msg, node=model)
 
     def execute(self, model, manifest):
@@ -73,7 +63,7 @@ class CloneRunner(BaseRunner):
 
         if "config" not in context:
             raise DbtInternalError(
-                "Invalid materialization context generated, missing config: {}".format(context)
+                f"Invalid materialization context generated, missing config: {context}"
             )
 
         context_config = context["config"]
@@ -141,10 +131,10 @@ class CloneTask(GraphRunnableTask):
         return list(values)
 
     def get_node_selector(self) -> ResourceTypeSelector:
-        resource_types = self.resource_types
-
         if self.manifest is None or self.graph is None:
             raise DbtInternalError("manifest and graph must be set to get perform node selection")
+        resource_types = self.resource_types
+
         return ResourceTypeSelector(
             graph=self.graph,
             manifest=self.manifest,

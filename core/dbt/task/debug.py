@@ -83,10 +83,7 @@ class DebugTask(BaseTask):
         except dbt.exceptions.Exception:
             # we probably couldn't find a project directory. Set project dir
             # to whatever was given, or default to the current directory.
-            if args.project_dir:
-                self.project_dir = args.project_dir
-            else:
-                self.project_dir = os.getcwd()
+            self.project_dir = args.project_dir if args.project_dir else os.getcwd()
         self.project_path = os.path.join(self.project_dir, "dbt_project.yml")
         self.cli_vars: Dict[str, Any] = args.vars
 
@@ -98,9 +95,7 @@ class DebugTask(BaseTask):
 
     @property
     def project_profile(self):
-        if self.project is None:
-            return None
-        return self.project.profile_name
+        return None if self.project is None else self.project.profile_name
 
     def run(self) -> bool:
         # WARN: this is a legacy workflow that is not compatible with other runtime flags
@@ -113,16 +108,18 @@ class DebugTask(BaseTask):
             return DebugRunStatus.SUCCESS.value
 
         version: str = get_installed_version().to_version_string(skip_matcher=True)
-        fire_event(DebugCmdOut(msg="dbt version: {}".format(version)))
-        fire_event(DebugCmdOut(msg="python version: {}".format(sys.version.split()[0])))
-        fire_event(DebugCmdOut(msg="python path: {}".format(sys.executable)))
-        fire_event(DebugCmdOut(msg="os info: {}".format(platform.platform())))
+        fire_event(DebugCmdOut(msg=f"dbt version: {version}"))
+        fire_event(DebugCmdOut(msg=f"python version: {sys.version.split()[0]}"))
+        fire_event(DebugCmdOut(msg=f"python path: {sys.executable}"))
+        fire_event(DebugCmdOut(msg=f"os info: {platform.platform()}"))
 
         # Load profile if possible, then load adapter info (which requires the profile)
         load_profile_status: SubtaskStatus = self._load_profile()
-        fire_event(DebugCmdOut(msg="Using profiles dir at {}".format(self.profiles_dir)))
-        fire_event(DebugCmdOut(msg="Using profiles.yml file at {}".format(self.profile_path)))
-        fire_event(DebugCmdOut(msg="Using dbt_project.yml file at {}".format(self.project_path)))
+        fire_event(DebugCmdOut(msg=f"Using profiles dir at {self.profiles_dir}"))
+        fire_event(DebugCmdOut(msg=f"Using profiles.yml file at {self.profile_path}"))
+        fire_event(
+            DebugCmdOut(msg=f"Using dbt_project.yml file at {self.project_path}")
+        )
         if load_profile_status.run_status == RunStatus.Success:
             if self.profile is None:
                 raise dbt.exceptions.DbtInternalError(
@@ -134,8 +131,8 @@ class DebugTask(BaseTask):
             adapter_version: str = self._read_adapter_version(
                 f"dbt.adapters.{adapter_type}.__version__"
             )
-            fire_event(DebugCmdOut(msg="adapter type: {}".format(adapter_type)))
-            fire_event(DebugCmdOut(msg="adapter version: {}".format(adapter_version)))
+            fire_event(DebugCmdOut(msg=f"adapter type: {adapter_type}"))
+            fire_event(DebugCmdOut(msg=f"adapter version: {adapter_version}"))
 
         # Get project loaded to do additional checks
         load_project_status: SubtaskStatus = self._load_project()
@@ -225,25 +222,20 @@ class DebugTask(BaseTask):
                     self.target_name = self._choose_target_name(profile_name)
                     self.profile = profile
 
-        if profile_errors:
-            details = "\n\n".join(profile_errors)
-            return SubtaskStatus(
-                log_msg=red("ERROR invalid"),
-                run_status=RunStatus.Error,
-                details=details,
-                summary_message=(
-                    summary_message + f"Profile loading failed for the following reason:"
-                    f"\n{details}"
-                    f"\n"
-                ),
-            )
-        else:
+        if not profile_errors:
             return SubtaskStatus(
                 log_msg=green("OK found and valid"),
                 run_status=RunStatus.Success,
                 details="",
                 summary_message="Profile is valid",
             )
+        details = "\n\n".join(profile_errors)
+        return SubtaskStatus(
+            log_msg=red("ERROR invalid"),
+            run_status=RunStatus.Error,
+            details=details,
+            summary_message=f"{summary_message}Profile loading failed for the following reason:\n{details}\n",
+        )
 
     def _choose_profile_names(self) -> Tuple[List[str], str]:
         project_profile: Optional[str] = None
@@ -271,13 +263,13 @@ class DebugTask(BaseTask):
             profiles = [k for k in self.raw_profile_data if k != "config"]
             if project_profile is None:
                 summary_message = "Could not load dbt_project.yml\n"
-            elif len(profiles) == 0:
+            elif not profiles:
                 summary_message = "The profiles.yml has no profiles\n"
             elif len(profiles) == 1:
                 summary_message = ONLY_PROFILE_MESSAGE.format(profiles[0])
             else:
                 summary_message = MULTIPLE_PROFILE_MESSAGE.format(
-                    "\n".join(" - {}".format(o) for o in profiles)
+                    "\n".join(f" - {o}" for o in profiles)
                 )
         return profiles, summary_message
 
@@ -288,7 +280,7 @@ class DebugTask(BaseTask):
         except ModuleNotFoundError:
             version = red("ERROR not found")
         except Exception as exc:
-            version = red("ERROR {}".format(exc))
+            version = red(f"ERROR {exc}")
             raise dbt.exceptions.DbtInternalError(
                 f"Error when reading adapter version from {module}: {exc}"
             )
@@ -425,12 +417,12 @@ class DebugTask(BaseTask):
         if self.profile_name is not None:
             fire_event(
                 DebugCmdOut(
-                    msg="  profile: {} [{}]\n".format(self.profile_name, self._profile_found())
+                    msg=f"  profile: {self.profile_name} [{self._profile_found()}]\n"
                 )
             )
             fire_event(
                 DebugCmdOut(
-                    msg="  target: {} [{}]\n".format(self.target_name, self._target_found())
+                    msg=f"  target: {self.target_name} [{self._target_found()}]\n"
                 )
             )
 

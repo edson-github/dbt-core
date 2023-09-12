@@ -20,7 +20,7 @@ from dbt import selected_resources
 
 
 def get_package_names(nodes):
-    return set([node.split(".")[1] for node in nodes])
+    return {node.split(".")[1] for node in nodes}
 
 
 def can_select_indirectly(node):
@@ -29,10 +29,7 @@ def can_select_indirectly(node):
     Today, only Test nodes can be indirectly selected. In the future,
     other node types or invocation flags might qualify.
     """
-    if node.resource_type == NodeType.Test:
-        return True
-    else:
-        return False
+    return node.resource_type == NodeType.Test
 
 
 class NodeSelector(MethodManager):
@@ -91,12 +88,11 @@ class NodeSelector(MethodManager):
 
         if spec.indirect_selection == IndirectSelection.Empty:
             return collected, set()
-        else:
-            neighbors = self.collect_specified_neighbors(spec, collected)
-            direct_nodes, indirect_nodes = self.expand_selection(
-                selected=(collected | neighbors), indirect_selection=spec.indirect_selection
-            )
-            return direct_nodes, indirect_nodes
+        neighbors = self.collect_specified_neighbors(spec, collected)
+        direct_nodes, indirect_nodes = self.expand_selection(
+            selected=(collected | neighbors), indirect_selection=spec.indirect_selection
+        )
+        return direct_nodes, indirect_nodes
 
     def collect_specified_neighbors(
         self, spec: SelectionCriteria, selected: Set[UniqueId]
@@ -253,9 +249,7 @@ class NodeSelector(MethodManager):
                         node.depends_on_nodes
                     ) <= set(selected_and_parents):
                         direct_nodes.add(unique_id)
-                    elif indirect_selection == IndirectSelection.Empty:
-                        pass
-                    else:
+                    elif indirect_selection != IndirectSelection.Empty:
                         indirect_nodes.add(unique_id)
 
         return direct_nodes, indirect_nodes
@@ -302,9 +296,7 @@ class NodeSelector(MethodManager):
               selected
         """
         selected_nodes, indirect_only = self.select_nodes(spec)
-        filtered_nodes = self.filter_selection(selected_nodes)
-
-        return filtered_nodes
+        return self.filter_selection(selected_nodes)
 
     def get_graph_queue(self, spec: SelectionSpec) -> GraphQueue:
         """Returns a queue over nodes in the graph that tracks progress of

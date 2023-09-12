@@ -138,7 +138,7 @@ class ListTask(GraphRunnableTask):
             elif output == "path":
                 generator = self.generate_paths
             else:
-                raise DbtInternalError("Invalid output {}".format(output))
+                raise DbtInternalError(f"Invalid output {output}")
 
             return self.output_results(generator())
 
@@ -174,10 +174,7 @@ class ListTask(GraphRunnableTask):
     def selection_arg(self):
         # for backwards compatibility, list accepts both --models and --select,
         # with slightly different behavior: --models implies --resource-type model
-        if self.args.models:
-            return self.args.models
-        else:
-            return self.args.select
+        return self.args.models if self.args.models else self.args.select
 
     def defer_to_manifest(self, adapter, selected_uids):
         # list don't defer

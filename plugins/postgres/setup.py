@@ -30,9 +30,7 @@ consider retrying with the 'DBT_PSYCOPG2_NAME' environment variable set to
 
 
 def _dbt_psycopg2_name():
-    # if the user chose something, use that
-    package_name = os.getenv("DBT_PSYCOPG2_NAME", "")
-    if package_name:
+    if package_name := os.getenv("DBT_PSYCOPG2_NAME", ""):
         return package_name
 
     # default to psycopg2-binary for all OSes/versions
@@ -69,9 +67,8 @@ setup(
         ]
     },
     install_requires=[
-        "dbt-core=={}".format(package_version),
-        "{}~=2.8".format(DBT_PSYCOPG2_NAME),
-        # installed via dbt-core, but referenced directly, don't pin to avoid version conflicts with dbt-core
+        f"dbt-core=={package_version}",
+        f"{DBT_PSYCOPG2_NAME}~=2.8",
         "agate",
     ],
     zip_safe=False,

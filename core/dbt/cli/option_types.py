@@ -46,10 +46,7 @@ class Truthy(ParamType):
         if not isinstance(value, (str, None)):
             self.fail(f"Cannot load TRUTHY from type {type(value)}", param, ctx)
 
-        if value is None or value.lower() in ("0", "false", "f"):
-            return None
-        else:
-            return value
+        return None if value is None or value.lower() in ("0", "false", "f") else value
 
 
 class ChoiceTuple(Choice):

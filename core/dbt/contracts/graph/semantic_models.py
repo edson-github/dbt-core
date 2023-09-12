@@ -84,10 +84,7 @@ class Dimension(dbtClassMixin):
 
     @property
     def validity_params(self) -> Optional[DimensionValidityParams]:
-        if self.type_params:
-            return self.type_params.validity_params
-        else:
-            return None
+        return self.type_params.validity_params if self.type_params else None
 
 
 # ====================================

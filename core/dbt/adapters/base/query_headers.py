@@ -38,11 +38,11 @@ class _QueryComment(local):
             sql = sql.rstrip()
             if sql[-1] == ";":
                 sql = sql[:-1]
-                return "{}\n/* {} */;".format(sql, self.query_comment.strip())
+                return f"{sql}\n/* {self.query_comment.strip()} */;"
 
-            return "{}\n/* {} */".format(sql, self.query_comment.strip())
+            return f"{sql}\n/* {self.query_comment.strip()} */"
 
-        return "/* {} */\n{}".format(self.query_comment.strip(), sql)
+        return f"/* {self.query_comment.strip()} */\n{sql}"
 
     def set(self, comment: Optional[str], append: bool):
         if isinstance(comment, str) and "*/" in comment:
@@ -91,9 +91,7 @@ class MacroQueryStringSetter:
         self.set("master", None)
 
     def set(self, name: str, node: Optional[ResultNode]):
-        wrapped: Optional[NodeWrapper] = None
-        if node is not None:
-            wrapped = NodeWrapper(node)
+        wrapped = NodeWrapper(node) if node is not None else None
         comment_str = self.generator(name, wrapped)
 
         append = False

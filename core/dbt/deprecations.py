@@ -14,7 +14,7 @@ class DBTDeprecation:
     def name(self) -> str:
         if self._name is not None:
             return self._name
-        raise NotImplementedError("name not implemented for {}".format(self))
+        raise NotImplementedError(f"name not implemented for {self}")
 
     def track_deprecation_warn(self) -> None:
         if dbt.tracking.active_user is not None:
@@ -31,7 +31,7 @@ class DBTDeprecation:
             except AttributeError:
                 msg = f"Event Class `{class_name}` is not defined in `{module_path}`"
                 raise NameError(msg)
-        raise NotImplementedError("event not implemented for {}".format(self._event))
+        raise NotImplementedError(f"event not implemented for {self._event}")
 
     def show(self, *args, **kwargs) -> None:
         if self.name not in active_deprecations:
@@ -62,9 +62,13 @@ class ConfigDataPathDeprecation(DBTDeprecation):
 
 
 def renamed_method(old_name: str, new_name: str):
+
+
+
     class AdapterDeprecationWarning(DBTDeprecation):
-        _name = "adapter:{}".format(old_name)
+        _name = f"adapter:{old_name}"
         _event = "AdapterDeprecationWarning"
+
 
     dep = AdapterDeprecationWarning()
     deprecations_list.append(dep)
@@ -114,7 +118,7 @@ def renamed_env_var(old_name: str, new_name: str):
 def warn(name, *args, **kwargs):
     if name not in deprecations:
         # this should (hopefully) never happen
-        raise RuntimeError("Error showing deprecation warning: {}".format(name))
+        raise RuntimeError(f"Error showing deprecation warning: {name}")
 
     deprecations[name].show(*args, **kwargs)
 

@@ -120,17 +120,16 @@ class PartialParsing:
         for file_id in common:
             if self.saved_files[file_id].checksum == self.new_files[file_id].checksum:
                 unchanged.append(file_id)
-            else:
-                # separate out changed schema files
-                if self.saved_files[file_id].parse_file_type == ParseFileType.Schema:
-                    sf = self.saved_files[file_id]
-                    if type(sf).__name__ != "SchemaSourceFile":
-                        raise Exception(f"Serialization failure for {file_id}")
+            elif self.saved_files[file_id].parse_file_type == ParseFileType.Schema:
+                sf = self.saved_files[file_id]
+                if type(sf).__name__ == "SchemaSourceFile":
                     changed_schema_files.append(file_id)
                 else:
-                    if self.saved_files[file_id].parse_file_type in mg_files:
-                        changed_or_deleted_macro_file = True
-                    changed.append(file_id)
+                    raise Exception(f"Serialization failure for {file_id}")
+            else:
+                if self.saved_files[file_id].parse_file_type in mg_files:
+                    changed_or_deleted_macro_file = True
+                changed.append(file_id)
 
         # handle changed env_vars for non-schema-files
         for file_id in self.env_vars_changed_source_files:
@@ -210,16 +209,14 @@ class PartialParsing:
             self.project_parser_files[project_name][parser_name].append(file_id)
 
     def already_scheduled_for_parsing(self, source_file):
-        file_id = source_file.file_id
         project_name = source_file.project_name
         if project_name not in self.project_parser_files:
             return False
         parser_name = parse_file_type_to_parser[source_file.parse_file_type]
         if parser_name not in self.project_parser_files[project_name]:
             return False
-        if file_id not in self.project_parser_files[project_name][parser_name]:
-            return False
-        return True
+        file_id = source_file.file_id
+        return file_id in self.project_parser_files[project_name][parser_name]
 
     # Add new files, including schema files
     def add_to_saved(self, file_id):
@@ -304,11 +301,7 @@ class PartialParsing:
         if self.already_scheduled_for_parsing(old_source_file):
             return
 
-        # These files only have one node except for snapshots
-        unique_ids = []
-        if old_source_file.nodes:
-            unique_ids = old_source_file.nodes
-
+        unique_ids = old_source_file.nodes if old_source_file.nodes else []
         # replace source_file in saved and add to parsing list
         file_id = new_source_file.file_id
         self.saved_files[file_id] = deepcopy(new_source_file)
@@ -442,8 +435,7 @@ class PartialParsing:
             assert isinstance(schema_file, SchemaSourceFile)
             if dict_key in schema_file.dict_from_yaml:
                 elements = schema_file.dict_from_yaml[dict_key]
-            schema_element = self.get_schema_element(elements, name)
-            if schema_element:
+            if schema_element := self.get_schema_element(elements, name):
                 delete(schema_file, schema_element)
                 self.merge_patch(schema_file, dict_key, schema_element)
 
@@ -525,8 +517,7 @@ class PartialParsing:
                         patch_list = []
                         if key in schema_file.dict_from_yaml:
                             patch_list = schema_file.dict_from_yaml[key]
-                        patch = self.get_schema_element(patch_list, name)
-                        if patch:
+                        if patch := self.get_schema_element(patch_list, name):
                             if key in ["models", "seeds", "snapshots"]:
                                 self.delete_schema_mssa_links(schema_file, key, patch)
                                 self.merge_patch(schema_file, key, patch)
@@ -691,51 +682,44 @@ class PartialParsing:
             for name in env_var_changes[dict_key]:
                 if name in element_diff["changed_or_deleted_names"]:
                     continue
-                elem = self.get_schema_element(new_yaml_dict[dict_key], name)
-                if elem:
+                if elem := self.get_schema_element(new_yaml_dict[dict_key], name):
                     delete(schema_file, elem)
                     self.merge_patch(schema_file, dict_key, elem)
 
     # Take a "section" of the schema file yaml dictionary from saved and new schema files
     # and determine which parts have changed
     def get_diff_for(self, key, saved_yaml_dict, new_yaml_dict):
-        if key in saved_yaml_dict or key in new_yaml_dict:
-            saved_elements = saved_yaml_dict[key] if key in saved_yaml_dict else []
-            new_elements = new_yaml_dict[key] if key in new_yaml_dict else []
-        else:
+        if key not in saved_yaml_dict and key not in new_yaml_dict:
             return {"deleted": [], "added": [], "changed": []}
-        # for each set of keys, need to create a dictionary of names pointing to entry
-        saved_elements_by_name = {}
-        new_elements_by_name = {}
-        # sources have two part names?
-        for element in saved_elements:
-            saved_elements_by_name[element["name"]] = element
-        for element in new_elements:
-            new_elements_by_name[element["name"]] = element
-
+        saved_elements = saved_yaml_dict[key] if key in saved_yaml_dict else []
+        new_elements = new_yaml_dict[key] if key in new_yaml_dict else []
+        saved_elements_by_name = {
+            element["name"]: element for element in saved_elements
+        }
+        new_elements_by_name = {element["name"]: element for element in new_elements}
         # now determine which elements, by name, are added, deleted or changed
         saved_element_names = set(saved_elements_by_name.keys())
         new_element_names = set(new_elements_by_name.keys())
         deleted = saved_element_names.difference(new_element_names)
         added = new_element_names.difference(saved_element_names)
         common = saved_element_names.intersection(new_element_names)
-        changed = []
-        for element_name in common:
-            if saved_elements_by_name[element_name] != new_elements_by_name[element_name]:
-                changed.append(element_name)
-
+        changed = [
+            element_name
+            for element_name in common
+            if saved_elements_by_name[element_name]
+            != new_elements_by_name[element_name]
+        ]
         # make lists of yaml elements to return as diffs
         deleted_elements = [saved_elements_by_name[name].copy() for name in deleted]
         added_elements = [new_elements_by_name[name].copy() for name in added]
         changed_elements = [new_elements_by_name[name].copy() for name in changed]
 
-        diff = {
+        return {
             "deleted": deleted_elements,
             "added": added_elements,
             "changed": changed_elements,
             "changed_or_deleted_names": list(changed) + list(deleted),
         }
-        return diff
 
     # Merge a patch file into the pp_dict in a schema file
     def merge_patch(self, schema_file, key, patch):
@@ -745,11 +729,7 @@ class PartialParsing:
         if key not in pp_dict:
             pp_dict[key] = [patch]
         else:
-            # check that this patch hasn't already been saved
-            found = False
-            for elem in pp_dict[key]:
-                if elem["name"] == patch["name"]:
-                    found = True
+            found = any(elem["name"] == patch["name"] for elem in pp_dict[key])
             if not found:
                 pp_dict[key].append(patch)
         schema_file.delete_from_env_vars(key, patch["name"])
@@ -776,11 +756,11 @@ class PartialParsing:
                 elem_unique_id in self.saved_manifest.nodes
                 or elem_unique_id in self.saved_manifest.disabled
             ):
-                if elem_unique_id in self.saved_manifest.nodes:
-                    nodes = [self.saved_manifest.nodes.pop(elem_unique_id)]
-                else:
-                    # The value of disabled items is a list of nodes
-                    nodes = self.saved_manifest.disabled.pop(elem_unique_id)
+                nodes = (
+                    [self.saved_manifest.nodes.pop(elem_unique_id)]
+                    if elem_unique_id in self.saved_manifest.nodes
+                    else self.saved_manifest.disabled.pop(elem_unique_id)
+                )
                 # need to add the node source_file to pp_files
                 for node in nodes:
                     file_id = node.file_id
@@ -904,10 +884,14 @@ class PartialParsing:
                 self.delete_disabled(unique_id, schema_file.file_id)
 
     def get_schema_element(self, elem_list, elem_name):
-        for element in elem_list:
-            if "name" in element and element["name"] == elem_name:
-                return element
-        return None
+        return next(
+            (
+                element
+                for element in elem_list
+                if "name" in element and element["name"] == elem_name
+            ),
+            None,
+        )
 
     def get_schema_file_for_source(self, package_name, source_name):
         schema_file = None

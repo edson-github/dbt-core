@@ -56,8 +56,8 @@ def print_compile_stats(stats):
         NodeType.Group: "group",
     }
 
-    results = {k: 0 for k in names.keys()}
-    results.update(stats)
+    results = {k: 0 for k in names}
+    results |= stats
 
     # create tracking event for resource_counts
     if dbt.tracking.active_user is not None:
@@ -72,10 +72,7 @@ def print_compile_stats(stats):
 
 def _node_enabled(node: ManifestNode):
     # Disabled models are already excluded from the manifest
-    if node.resource_type == NodeType.Test and not node.config.enabled:
-        return False
-    else:
-        return True
+    return bool(node.resource_type != NodeType.Test or node.config.enabled)
 
 
 def _generate_stats(manifest: Manifest):
@@ -117,10 +114,11 @@ def _get_tests_for_node(manifest: Manifest, unique_id: UniqueID) -> List[UniqueI
 
     tests = []
     if unique_id in manifest.child_map:
-        for child_unique_id in manifest.child_map[unique_id]:
-            if child_unique_id.startswith("test."):
-                tests.append(child_unique_id)
-
+        tests.extend(
+            child_unique_id
+            for child_unique_id in manifest.child_map[unique_id]
+            if child_unique_id.startswith("test.")
+        )
     return tests
 
 
@@ -192,10 +190,8 @@ class Linker:
         for metric in manifest.metrics.values():
             self.link_node(metric, manifest)
 
-        cycle = self.find_cycles()
-
-        if cycle:
-            raise RuntimeError("Found a cycle: {}".format(cycle))
+        if cycle := self.find_cycles():
+            raise RuntimeError(f"Found a cycle: {cycle}")
 
     def add_test_edges(self, manifest: Manifest) -> None:
         """This method adds additional edges to the DAG. For a given non-test
@@ -227,7 +223,7 @@ class Linker:
                 # Get *everything* upstream of the node
                 all_upstream_nodes = nx.traversal.bfs_tree(self.graph, node_id, reverse=True)
                 # Get the set of upstream nodes not including the current node.
-                upstream_nodes = set([n for n in all_upstream_nodes if n != node_id])
+                upstream_nodes = {n for n in all_upstream_nodes if n != node_id}
 
                 # Get all tests that depend on any upstream nodes.
                 upstream_tests = []
@@ -258,16 +254,17 @@ class Linker:
         and performance tuning. The summary includes only the edge structure,
         node types, and node names. Each of the n nodes is assigned an integer
         index 0, 1, 2,..., n-1 for compactness"""
-        graph_nodes = dict()
-        index_dict = dict()
+        graph_nodes = {}
+        index_dict = {}
         for node_index, node_name in enumerate(self.graph):
             index_dict[node_name] = node_index
             data = manifest.expect(node_name).to_dict(omit_none=True)
             graph_nodes[node_index] = {"name": node_name, "type": data["resource_type"]}
 
-        for node_index, node in graph_nodes.items():
-            successors = [index_dict[n] for n in self.graph.successors(node["name"])]
-            if successors:
+        for node in graph_nodes.values():
+            if successors := [
+                index_dict[n] for n in self.graph.successors(node["name"])
+            ]:
                 node["succ"] = [index_dict[n] for n in self.graph.successors(node["name"])]
 
         return graph_nodes
@@ -454,8 +451,7 @@ class Compiler:
 
         # Create a file containing basic information about graph structure,
         # supporting diagnostics and performance analysis.
-        summaries: Dict = dict()
-        summaries["_invocation_id"] = get_invocation_id()
+        summaries: Dict = {"_invocation_id": get_invocation_id()}
         summaries["linked"] = linker.get_graph_summary(manifest)
 
         if add_test_edges:
@@ -570,7 +566,7 @@ def inject_ctes_into_sql(sql: str, ctes: List[InjectedCTE]) -> str:
 
     (Whitespace enhanced for readability.)
     """
-    if len(ctes) == 0:
+    if not ctes:
         return sql
 
     parsed_stmts = sqlparse.parse(sql)

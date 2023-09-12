@@ -40,7 +40,7 @@ class BlockTag:
 
     @property
     def end_block_type_name(self):
-        return "end{}".format(self.block_type_name)
+        return f"end{self.block_type_name}"
 
     def end_pat(self):
         # we don't want to use string formatting here because jinja uses most
@@ -70,9 +70,8 @@ BLOCK_START_PATTERN = regex(
     "".join(
         (
             r"(?:\s*\{\%\-|\{\%)\s*",
-            r"(?P<block_type_name>({}))".format(_NAME_PATTERN),
-            # some blocks have a 'block name'.
-            r"(?:\s+(?P<block_name>({})))?".format(_NAME_PATTERN),
+            f"(?P<block_type_name>({_NAME_PATTERN}))",
+            f"(?:\s+(?P<block_name>({_NAME_PATTERN})))?",
         )
     )
 )
@@ -138,11 +137,7 @@ class TagIterator:
                 match = self._match(pattern)
             if match:
                 matches.append(match)
-        if not matches:
-            return None
-        # if there are multiple matches, pick the least greedy match
-        # TODO: do I need to account for m.start(), or is this ok?
-        return min(matches, key=lambda m: m.end())
+        return None if not matches else min(matches, key=lambda m: m.end())
 
     def _expect_match(self, expected_name, *patterns, **kwargs):
         match = self._first_match(*patterns, **kwargs)
@@ -168,11 +163,10 @@ class TagIterator:
             match = self._expect_match("}}", EXPR_END_PATTERN, QUOTE_START_PATTERN)
             if match.groupdict().get("expr_end") is not None:
                 break
-            else:
-                # it's a quote. we haven't advanced for this match yet, so
-                # just slurp up the whole string, no need to rewind.
-                match = self._expect_match("string", STRING_PATTERN)
-                self.advance(match.end())
+            # it's a quote. we haven't advanced for this match yet, so
+            # just slurp up the whole string, no need to rewind.
+            match = self._expect_match("string", STRING_PATTERN)
+            self.advance(match.end())
 
         self.advance(match.end())
 
@@ -287,10 +281,7 @@ class BlockIterator:
 
     @property
     def current_end(self):
-        if self.current is None:
-            return 0
-        else:
-            return self.current.end
+        return 0 if self.current is None else self.current.end
 
     @property
     def data(self):
@@ -350,8 +341,7 @@ class BlockIterator:
             raise MissingCloseTagError(self.current.block_type_name, linecount)
 
         if collect_raw_data:
-            raw_data = self.data[self.last_position :]
-            if raw_data:
+            if raw_data := self.data[self.last_position :]:
                 yield BlockData(raw_data)
 
     def lex_for_blocks(self, allowed_blocks=None, collect_raw_data=True):

@@ -21,9 +21,7 @@ from dbt.exceptions import DbtInternalError, ParsingError
 
 
 def trimmed(inp: str) -> str:
-    if len(inp) < 50:
-        return inp
-    return inp[:44] + "..." + inp[-3:]
+    return inp if len(inp) < 50 else f"{inp[:44]}...{inp[-3:]}"
 
 
 TestDef = Union[str, Dict[str, Any]]
@@ -94,20 +92,14 @@ class TargetBlock(YamlBlock, Generic[Target]):
 class TargetColumnsBlock(TargetBlock[ColumnTarget], Generic[ColumnTarget]):
     @property
     def columns(self):
-        if self.target.columns is None:
-            return []
-        else:
-            return self.target.columns
+        return [] if self.target.columns is None else self.target.columns
 
 
 @dataclass
 class TestBlock(TargetColumnsBlock[Testable], Generic[Testable]):
     @property
     def tests(self) -> List[TestDef]:
-        if self.target.tests is None:
-            return []
-        else:
-            return self.target.tests
+        return [] if self.target.tests is None else self.target.tests
 
     @property
     def quote_columns(self) -> Optional[bool]:
@@ -184,11 +176,7 @@ class ParserRef:
         tags: List[str] = []
         tags.extend(getattr(column, "tags", ()))
         quote: Optional[bool]
-        if isinstance(column, UnparsedColumn):
-            quote = column.quote
-        else:
-            quote = None
-
+        quote = column.quote if isinstance(column, UnparsedColumn) else None
         if any(
             c
             for c in column.constraints

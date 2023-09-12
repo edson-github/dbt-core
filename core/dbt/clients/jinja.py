@@ -146,17 +146,16 @@ def quoted_native_concat(nodes):
     if not head:
         return ""
 
-    if len(head) == 1:
-        raw = head[0]
-        if isinstance(raw, TextMarker):
-            return str(raw)
-        elif not isinstance(raw, NativeMarker):
-            # return non-strings as-is
-            return raw
-    else:
+    if len(head) != 1:
         # multiple nodes become a string.
         return "".join([str(v) for v in chain(head, nodes)])
 
+    raw = head[0]
+    if isinstance(raw, TextMarker):
+        return str(raw)
+    elif not isinstance(raw, NativeMarker):
+        # return non-strings as-is
+        return raw
     try:
         result = literal_eval(raw)
     except (ValueError, SyntaxError, MemoryError):
@@ -426,6 +425,9 @@ def _is_dunder_name(name):
 
 
 def create_undefined(node=None):
+
+
+
     class Undefined(jinja2.Undefined):
         def __init__(self, hint=None, obj=None, name=None, exc=None):
             super().__init__(hint=hint, name=name)
@@ -445,7 +447,7 @@ def create_undefined(node=None):
         def __getattr__(self, name):
             if name == "name" or _is_dunder_name(name):
                 raise AttributeError(
-                    "'{}' object has no attribute '{}'".format(type(self).__name__, name)
+                    f"'{type(self).__name__}' object has no attribute '{name}'"
                 )
 
             self.name = name
@@ -457,6 +459,7 @@ def create_undefined(node=None):
 
         def __reduce__(self):
             raise UndefinedCompilationError(name=self.name, node=node)
+
 
     return Undefined
 
@@ -537,7 +540,7 @@ def get_template(
     with catch_jinja(node):
         env = get_environment(node, capture_macros, native=native)
 
-        template_source = str(string)
+        template_source = string
         return env.from_string(template_source, globals=ctx)
 
 
@@ -565,7 +568,7 @@ def _requote_result(raw_value: str, rendered: str) -> str:
 # is small enough that I've just chosen the more readable option.
 _HAS_RENDER_CHARS_PAT = re.compile(r"({[{%#]|[#}%]})")
 
-_render_cache: Dict[str, Any] = dict()
+_render_cache: Dict[str, Any] = {}
 
 
 def get_rendered(

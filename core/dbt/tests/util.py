@@ -85,7 +85,7 @@ def run_dbt(
     if args is None:
         args = ["run"]
 
-    print("\n\nInvoking dbt with {}".format(args))
+    print(f"\n\nInvoking dbt with {args}")
     from dbt.flags import get_flags
 
     flags = get_flags()
@@ -228,8 +228,7 @@ def rm_dir(directory_path):
 # manifest.json or catalog.json to use in a test
 def get_artifact(*paths):
     contents = read_file(*paths)
-    dct = json.loads(contents)
-    return dct
+    return json.loads(contents)
 
 
 def write_artifact(dct, *paths):
@@ -255,25 +254,18 @@ def write_config_file(data, *paths):
 
 # Get the unique_ids in dbt command results
 def get_unique_ids_in_results(results):
-    unique_ids = []
-    for result in results:
-        unique_ids.append(result.node.unique_id)
-    return unique_ids
+    return [result.node.unique_id for result in results]
 
 
 # Check the nodes in the results returned by a dbt run command
 def check_result_nodes_by_name(results, names):
-    result_names = []
-    for result in results:
-        result_names.append(result.node.name)
+    result_names = [result.node.name for result in results]
     assert set(names) == set(result_names)
 
 
 # Check the nodes in the results returned by a dbt run command
 def check_result_nodes_by_unique_id(results, unique_ids):
-    result_unique_ids = []
-    for result in results:
-        result_unique_ids.append(result.node.unique_id)
+    result_unique_ids = [result.node.unique_id for result in results]
     assert set(unique_ids) == set(result_unique_ids)
 
 
@@ -346,12 +338,11 @@ def relation_from_name(adapter, name: str):
         "identifier": relation_parts[2],
     }
 
-    relation = cls.create(
+    return cls.create(
         include_policy=include_policy,
         quote_policy=quote_policy,
         **kwargs,
     )
-    return relation
 
 
 # Ensure that models with different materialiations have the
@@ -479,10 +470,7 @@ def update_rows(adapter, update_rows_config):
     clause = update_rows_config["clause"]
     clause = generate_update_clause(adapter, clause)
 
-    where = None
-    if "where" in update_rows_config:
-        where = update_rows_config["where"]
-
+    where = update_rows_config["where"] if "where" in update_rows_config else None
     name = update_rows_config["name"]
     dst_col = update_rows_config["dst_col"]
     relation = relation_from_name(adapter, name)
@@ -534,8 +522,7 @@ def generate_update_clause(adapter, clause) -> str:
 @contextmanager
 def get_connection(adapter, name="_test"):
     with adapter.connection_named(name):
-        conn = adapter.connections.get_thread_connection()
-        yield conn
+        yield adapter.connections.get_thread_connection()
 
 
 # Uses:
@@ -591,10 +578,7 @@ class AnyStringWith:
         if not isinstance(other, str):
             return False
 
-        if self.contains is None:
-            return True
-
-        return self.contains in other
+        return True if self.contains is None else self.contains in other
 
     def __repr__(self):
         return "AnyStringWith<{!r}>".format(self.contains)

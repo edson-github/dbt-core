@@ -28,9 +28,7 @@ def get_version_information() -> str:
     if core_info_msg != "":
         msg_lines.append(core_info_msg)
 
-    msg_lines.append(plugin_version_msg)
-    msg_lines.append("")
-
+    msg_lines.extend((plugin_version_msg, ""))
     return "\n\n".join(msg_lines)
 
 
@@ -107,9 +105,10 @@ def _get_plugins_msg(installed: dbt.semver.VersionSpecifier) -> str:
             display_update_msg = True
         plugins.append([name, version_s, compatability_msg])
 
-    for plugin in _pad_lines(plugins, seperator=":"):
-        msg_lines.append(_format_single_plugin(plugin, ""))
-
+    msg_lines.extend(
+        _format_single_plugin(plugin, "")
+        for plugin in _pad_lines(plugins, seperator=":")
+    )
     if display_update_msg:
         update_msg = (
             "  At least one plugin is out of date or incompatible with dbt-core.\n"
@@ -158,7 +157,7 @@ def _format_single_plugin(plugin: List[str], update_msg: str) -> str:
 
 
 def _pad_lines(lines: List[List[str]], seperator: str = "") -> List[List[str]]:
-    if len(lines) == 0:
+    if not lines:
         return []
 
     # count the max line length for each column in the line

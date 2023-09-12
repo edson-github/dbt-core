@@ -39,8 +39,7 @@ def clone(repo, cwd, dirname=None, remove_git_dir=False, revision=None, subdirec
         if not git_version >= version.parse("2.25.0"):
             # 2.25.0 introduces --sparse
             raise RuntimeError(
-                "Please update your git version to pull a dbt package "
-                "from a subdirectory: your version is {}, >= 2.25.0 needed".format(git_version)
+                f"Please update your git version to pull a dbt package from a subdirectory: your version is {git_version}, >= 2.25.0 needed"
             )
         clone_cmd.extend(["--filter=blob:none", "--sparse"])
 
@@ -72,8 +71,7 @@ def clone(repo, cwd, dirname=None, remove_git_dir=False, revision=None, subdirec
 
 def list_tags(cwd):
     out, err = run_cmd(cwd, ["git", "tag", "--list"], env={"LC_ALL": "C"})
-    tags = out.decode("utf-8").strip().split("\n")
-    return tags
+    return out.decode("utf-8").strip().split("\n")
 
 
 def _checkout(cwd, repo, revision):
@@ -89,11 +87,10 @@ def _checkout(cwd, repo, revision):
 
     if _is_commit(revision):
         spec = revision
-    # Prefer tags to branches if one exists
     elif revision in list_tags(cwd):
-        spec = "tags/{}".format(revision)
+        spec = f"tags/{revision}"
     else:
-        spec = "origin/{}".format(revision)
+        spec = f"origin/{revision}"
 
     out, err = run_cmd(cwd, ["git", "reset", "--hard", spec], env={"LC_ALL": "C"})
     return out, err

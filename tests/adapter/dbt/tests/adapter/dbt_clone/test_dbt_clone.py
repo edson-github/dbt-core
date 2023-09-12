@@ -53,7 +53,7 @@ class BaseClone:
 
     @pytest.fixture(scope="class")
     def other_schema(self, unique_schema):
-        return unique_schema + "_other"
+        return f"{unique_schema}_other"
 
     @property
     def project_config_update(self):

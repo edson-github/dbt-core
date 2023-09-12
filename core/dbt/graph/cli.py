@@ -162,11 +162,10 @@ def parse_union_definition(definition: Dict[str, Any], result={}) -> SelectionSp
 
     union = SelectionUnion(components=include)
 
-    if exclude is None:
-        union.raw = definition
-        return union
-    else:
+    if exclude is not None:
         return SelectionDifference(components=[union, exclude], raw=definition)
+    union.raw = definition
+    return union
 
 
 def parse_intersection_definition(definition: Dict[str, Any], result={}) -> SelectionSpec:
@@ -174,22 +173,21 @@ def parse_intersection_definition(definition: Dict[str, Any], result={}) -> Sele
     include, exclude = _parse_include_exclude_subdefs(intersection_def_parts, result=result)
     intersection = SelectionIntersection(components=include)
 
-    if exclude is None:
-        intersection.raw = definition
-        return intersection
-    else:
+    if exclude is not None:
         return SelectionDifference(components=[intersection, exclude], raw=definition)
+    intersection.raw = definition
+    return intersection
 
 
 def parse_dict_definition(definition: Dict[str, Any], result={}) -> SelectionSpec:
     diff_arg: Optional[SelectionSpec] = None
     if len(definition) == 1:
         key = list(definition)[0]
-        value = definition[key]
         if not isinstance(key, str):
             raise DbtValidationError(
                 f'Expected definition key to be a "str", got one of type ' f'"{type(key)}" ({key})'
             )
+        value = definition[key]
         dct = {
             "method": key,
             "value": value,

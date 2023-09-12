@@ -94,11 +94,11 @@ class SelectorConfig(Dict[str, Dict[str, Union[SelectionSpec, bool]]]):
 def selector_data_from_root(project_root: str) -> Dict[str, Any]:
     selector_filepath = resolve_path_from_base("selectors.yml", project_root)
 
-    if path_exists(selector_filepath):
-        selectors_dict = load_yaml_text(load_file_contents(selector_filepath))
-    else:
-        selectors_dict = None
-    return selectors_dict
+    return (
+        load_yaml_text(load_file_contents(selector_filepath))
+        if path_exists(selector_filepath)
+        else None
+    )
 
 
 def selector_config_from_data(selectors_data: Dict[str, Any]) -> SelectorConfig:
@@ -168,12 +168,9 @@ class SelectorDict:
         for sel_def in definition[def_type]:
             if isinstance(sel_def, dict):
                 sel_def = cls.parse_from_definition(sel_def, selector_dict=selector_dict)
-                new_dict[def_type].append(sel_def)
             elif isinstance(sel_def, str):
                 sel_def = SelectionCriteria.dict_from_single_spec(sel_def)
-                new_dict[def_type].append(sel_def)
-            else:
-                new_dict[def_type].append(sel_def)
+            new_dict[def_type].append(sel_def)
         return new_dict
 
     @classmethod

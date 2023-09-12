@@ -63,10 +63,7 @@ class PinnedPackage(BasePackage):
 
     def __str__(self) -> str:
         version = self.get_version()
-        if not version:
-            return self.name
-
-        return "{}@{}".format(self.name, version)
+        return self.name if not version else f"{self.name}@{version}"
 
     @abc.abstractmethod
     def get_version(self) -> Optional[str]:

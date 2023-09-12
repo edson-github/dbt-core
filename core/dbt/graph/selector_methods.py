@@ -64,9 +64,8 @@ def is_selected_node(fqn: List[str], node_selector: str, is_versioned: bool) -> 
         # If this is a versioned model, then the last two segments should be allowed to exactly match on either the '.' or '_' delimiter
         elif "_".join(fqn[-2:]) == "_".join(flat_node_selector[-2:]):
             return True
-    else:
-        if fqn[-1] == node_selector:
-            return True
+    elif fqn[-1] == node_selector:
+        return True
     # Flatten node parts. Dots in model names act as namespace separators
     flat_fqn = [item for segment in fqn for item in segment.split(".")]
     # Selector components cannot be more than fqn's
@@ -325,13 +324,11 @@ class MetricSelectorMethod(SelectorMethod):
 class PathSelectorMethod(SelectorMethod):
     def search(self, included_nodes: Set[UniqueId], selector: str) -> Iterator[UniqueId]:
         """Yields nodes from included that match the given path."""
-        # get project root from contextvar
-        project_root = get_project_root()
-        if project_root:
+        if project_root := get_project_root():
             root = Path(project_root)
         else:
             root = Path.cwd()
-        paths = set(p.relative_to(root) for p in root.glob(selector))
+        paths = {p.relative_to(root) for p in root.glob(selector)}
         for node, real_node in self.all_nodes(included_nodes):
             ofp = Path(real_node.original_file_path)
             if ofp in paths:
@@ -415,14 +412,13 @@ class ConfigSelectorMethod(SelectorMethod):
                         or (CaseInsensitive(selector) == "false" and False in value)
                     ):
                         yield node
-                else:
-                    if (
+                elif (
                         (selector == value)
                         or (CaseInsensitive(selector) == "true" and value is True)
                         or (CaseInsensitive(selector) == "false")
                         and value is False
                     ):
-                        yield node
+                    yield node
 
 
 class ResourceTypeSelectorMethod(SelectorMethod):
@@ -452,9 +448,9 @@ class TestTypeSelectorMethod(SelectorMethod):
     def search(self, included_nodes: Set[UniqueId], selector: str) -> Iterator[UniqueId]:
         search_type: Type
         # continue supporting 'schema' + 'data' for backwards compatibility
-        if selector in ("generic", "schema"):
+        if selector in {"generic", "schema"}:
             search_type = GenericTestNode
-        elif selector in ("singular", "data"):
+        elif selector in {"singular", "data"}:
             search_type = SingularTestNode
         else:
             raise DbtRuntimeError(
@@ -487,10 +483,9 @@ class StateSelectorMethod(SelectorMethod):
             else:
                 modified.append(uid)
 
-        for uid, macro in old_macros.items():
-            if uid not in new_macros:
-                modified.append(uid)
-
+        modified.extend(
+            uid for uid, macro in old_macros.items() if uid not in new_macros
+        )
         return modified
 
     def recursively_check_macros_modified(self, node, visited_macros):
@@ -509,10 +504,9 @@ class StateSelectorMethod(SelectorMethod):
             # macros which each need to be tested for modification
             macro_node = self.manifest.macros[macro_uid]
             if len(macro_node.depends_on.macros) > 0:
-                upstream_macros_changed = self.recursively_check_macros_modified(
+                if upstream_macros_changed := self.recursively_check_macros_modified(
                     macro_node, visited_macros
-                )
-                if upstream_macros_changed:
+                ):
                     return True
                 continue
 
@@ -527,13 +521,10 @@ class StateSelectorMethod(SelectorMethod):
         # check if there are any changes in macros the first time
         if self.modified_macros is None:
             self.modified_macros = self._macros_modified()
-        # no macros have been modified, skip looping entirely
         if not self.modified_macros:
             return False
-        # recursively loop through upstream macros to see if any is modified
-        else:
-            visited_macros = []
-            return self.recursively_check_macros_modified(node, visited_macros)
+        visited_macros = []
+        return self.recursively_check_macros_modified(node, visited_macros)
 
     # TODO check modifed_content and check_modified macro seems a bit redundent
     def check_modified_content(
@@ -647,9 +638,11 @@ class ResultSelectorMethod(SelectorMethod):
     def search(self, included_nodes: Set[UniqueId], selector: str) -> Iterator[UniqueId]:
         if self.previous_state is None or self.previous_state.results is None:
             raise DbtInternalError("No comparison run_results")
-        matches = set(
-            result.unique_id for result in self.previous_state.results if result.status == selector
-        )
+        matches = {
+            result.unique_id
+            for result in self.previous_state.results
+            if result.status == selector
+        }
         for node, real_node in self.all_nodes(included_nodes):
             if node in matches:
                 yield node
@@ -665,38 +658,38 @@ class SourceStatusSelectorMethod(SelectorMethod):
         elif self.previous_state.sources_current is None:
             raise DbtInternalError("No current state comparison freshness results in sources.json")
 
-        current_state_sources = {
-            result.unique_id: getattr(result, "max_loaded_at", 0)
-            for result in self.previous_state.sources_current.results
-            if hasattr(result, "max_loaded_at")
-        }
-
-        current_state_sources_runtime_error = {
-            result.unique_id
-            for result in self.previous_state.sources_current.results
-            if not hasattr(result, "max_loaded_at")
-        }
-
-        previous_state_sources = {
-            result.unique_id: getattr(result, "max_loaded_at", 0)
-            for result in self.previous_state.sources.results
-            if hasattr(result, "max_loaded_at")
-        }
-
-        previous_state_sources_runtime_error = {
-            result.unique_id
-            for result in self.previous_state.sources_current.results
-            if not hasattr(result, "max_loaded_at")
-        }
-
         matches = set()
         if selector == "fresher":
-            for unique_id in current_state_sources:
-                if unique_id not in previous_state_sources:
-                    matches.add(unique_id)
-                elif current_state_sources[unique_id] > previous_state_sources[unique_id]:
-                    matches.add(unique_id)
+            current_state_sources = {
+                result.unique_id: getattr(result, "max_loaded_at", 0)
+                for result in self.previous_state.sources_current.results
+                if hasattr(result, "max_loaded_at")
+            }
 
+            current_state_sources_runtime_error = {
+                result.unique_id
+                for result in self.previous_state.sources_current.results
+                if not hasattr(result, "max_loaded_at")
+            }
+
+            previous_state_sources = {
+                result.unique_id: getattr(result, "max_loaded_at", 0)
+                for result in self.previous_state.sources.results
+                if hasattr(result, "max_loaded_at")
+            }
+
+            previous_state_sources_runtime_error = {
+                result.unique_id
+                for result in self.previous_state.sources_current.results
+                if not hasattr(result, "max_loaded_at")
+            }
+
+            for unique_id, value in current_state_sources.items():
+                if (
+                    unique_id not in previous_state_sources
+                    or value > previous_state_sources[unique_id]
+                ):
+                    matches.add(unique_id)
             for unique_id in matches:
                 if (
                     unique_id in previous_state_sources_runtime_error

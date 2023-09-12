@@ -53,7 +53,7 @@ class LogMessage(dbtClassMixin):
     @classmethod
     def from_record_formatted(cls, record: logbook.LogRecord, message: str):
         extra = dict(record.extra)
-        log_message = LogMessage(
+        return LogMessage(
             timestamp=record.time,
             message=message,
             channel=record.channel,
@@ -64,14 +64,12 @@ class LogMessage(dbtClassMixin):
             process=record.process,
             exc_info=record.formatted_exception,
         )
-        return log_message
 
 
 class LogMessageFormatter(logbook.StringFormatter):
     def __call__(self, record, handler):
         data = self.format_record(record, handler)
-        exc = self.format_exception(record)
-        if exc:
+        if exc := self.format_exception(record):
             data.exc_info = exc
         return data
 
@@ -491,10 +489,7 @@ class ListLogHandler(LogMessageHandler):
 
 def _env_log_level(var_name: str) -> int:
     # convert debugging environment variable name to a log level
-    if dbt.flags.env_set_truthy(var_name):
-        return logging.DEBUG
-    else:
-        return logging.ERROR
+    return logging.DEBUG if dbt.flags.env_set_truthy(var_name) else logging.ERROR
 
 
 LOG_LEVEL_GOOGLE = _env_log_level("DBT_GOOGLE_DEBUG_LOGGING")
@@ -526,7 +521,7 @@ def get_timestamp():
 
 
 def timestamped_line(msg: str) -> str:
-    return "{} | {}".format(get_timestamp(), msg)
+    return f"{get_timestamp()} | {msg}"
 
 
 def print_timestamped_line(msg: str, use_color: Optional[str] = None):

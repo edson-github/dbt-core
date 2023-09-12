@@ -462,7 +462,6 @@ def verify_manifest(project, expected_manifest, start_time, manifest_schema_path
         "group_map",
         "metrics",
         "groups",
-        "docs",
         "metadata",
         "docs",
         "disabled",
@@ -537,7 +536,7 @@ def verify_run_results(project, expected_run_results, start_time, run_results_sc
 class BaseVerifyProject:
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, project):
-        alternate_schema_name = project.test_schema + "_test"
+        alternate_schema_name = f"{project.test_schema}_test"
         project.create_test_schema(schema_name=alternate_schema_name)
         os.environ["DBT_ENV_CUSTOM_ENV_env_key"] = "env_value"
         run_dbt(["seed"])
@@ -562,7 +561,7 @@ class BaseVerifyProject:
 
     @pytest.fixture(scope="class")
     def project_config_update(self, unique_schema):
-        alternate_schema = unique_schema + "_test"
+        alternate_schema = f"{unique_schema}_test"
         return {
             "vars": {
                 "test_schema": unique_schema,
@@ -577,18 +576,16 @@ class BaseVerifyProject:
     @pytest.fixture(scope="class")
     def manifest_schema_path(self, request):
         schema_version_paths = WritableManifest.dbt_schema_version.path.split("/")
-        manifest_schema_path = os.path.join(
+        return os.path.join(
             request.config.rootdir, "schemas", *schema_version_paths
         )
-        return manifest_schema_path
 
     @pytest.fixture(scope="class")
     def run_results_schema_path(self, request):
         schema_version_paths = RunResultsArtifact.dbt_schema_version.path.split("/")
-        run_results_schema_path = os.path.join(
+        return os.path.join(
             request.config.rootdir, "schemas", *schema_version_paths
         )
-        return run_results_schema_path
 
 
 def validate(artifact_schema, artifact_dict):

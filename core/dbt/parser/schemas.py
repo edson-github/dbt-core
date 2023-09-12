@@ -283,9 +283,7 @@ class YamlReader(metaclass=ABCMeta):
         data = self.yaml.data.get(self.key, [])
         if not isinstance(data, list):
             raise ParsingError(
-                "{} must be a list, got {} instead: ({})".format(
-                    self.key, type(data), trimmed(str(data))
-                )
+                f"{self.key} must be a list, got {type(data)} instead: ({trimmed(str(data))})"
             )
         path = self.yaml.path.original_file_path
 
@@ -486,10 +484,9 @@ class PatchParser(YamlReader, Generic[NonSourceTarget, Parsed]):
                     Remove the top-level key and define it under 'config' dictionary only.
                 """.strip()
                 )
-            else:
-                if "config" not in data:
-                    data["config"] = {}
-                data["config"][attribute] = data.pop(attribute)
+            if "config" not in data:
+                data["config"] = {}
+            data["config"][attribute] = data.pop(attribute)
 
     def normalize_meta_attribute(self, data, path):
         return self.normalize_attribute(data, path, "meta")
@@ -574,9 +571,9 @@ class NodePatchParser(PatchParser[NodeTarget, ParsedNodePatch], Generic[NodeTarg
             )
         # handle disabled nodes
         if unique_id is None:
-            # Node might be disabled. Following call returns list of matching disabled nodes
-            found_nodes = self.manifest.disabled_lookup.find(patch.name, patch.package_name)
-            if found_nodes:
+            if found_nodes := self.manifest.disabled_lookup.find(
+                patch.name, patch.package_name
+            ):
                 if len(found_nodes) > 1 and patch.config.get("enabled"):
                     # There are multiple disabled nodes for this model and the schema file wants to enable one.
                     # We have no way to know which one to enable.
@@ -610,9 +607,7 @@ class NodePatchParser(PatchParser[NodeTarget, ParsedNodePatch], Generic[NodeTarg
                 )
                 return
 
-        # patches can't be overwritten
-        node = self.manifest.nodes.get(unique_id)
-        if node:
+        if node := self.manifest.nodes.get(unique_id):
             if node.patch_path:
                 package_name, existing_file_path = node.patch_path.split("://")
                 raise DuplicatePatchPathError(patch, existing_file_path)
@@ -706,9 +701,9 @@ class ModelPatchParser(NodePatchParser[UnparsedModelUpdate]):
                     )
 
                 if versioned_model_unique_id is None:
-                    # Node might be disabled. Following call returns list of matching disabled nodes
-                    found_nodes = self.manifest.disabled_lookup.find(versioned_model_name, None)
-                    if found_nodes:
+                    if found_nodes := self.manifest.disabled_lookup.find(
+                        versioned_model_name, None
+                    ):
                         if len(found_nodes) > 1 and target.config.get("enabled"):
                             # There are multiple disabled nodes for this model and the schema file wants to enable one.
                             # We have no way to know which one to enable.

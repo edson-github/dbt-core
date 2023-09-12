@@ -145,9 +145,7 @@ class FreshnessSelector(ResourceTypeSelector):
     def node_is_match(self, node):
         if not super().node_is_match(node):
             return False
-        if not isinstance(node, SourceDefinition):
-            return False
-        return node.has_freshness
+        return False if not isinstance(node, SourceDefinition) else node.has_freshness
 
 
 class FreshnessTask(GraphRunnableTask):

@@ -91,16 +91,16 @@ class PostgresRelation(BaseRelation):
 
         Returns: a set of index updates in the form {"action": "drop/create", "context": <IndexConfig>}
         """
-        drop_changes = set(
+        drop_changes = {
             PostgresIndexConfigChange.from_dict(
                 {"action": RelationConfigChangeAction.drop, "context": index}
             )
             for index in existing_indexes.difference(new_indexes)
-        )
-        create_changes = set(
+        }
+        create_changes = {
             PostgresIndexConfigChange.from_dict(
                 {"action": RelationConfigChangeAction.create, "context": index}
             )
             for index in new_indexes.difference(existing_indexes)
-        )
+        }
         return set().union(drop_changes, create_changes)

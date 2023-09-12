@@ -86,7 +86,7 @@ class ConstraintSupport(str, Enum):
 def _expect_row_value(key: str, row: agate.Row):
     if key not in row.keys():
         raise DbtInternalError(
-            'Got a row without "{}" column, columns: {}'.format(key, row.keys())
+            f'Got a row without "{key}" column, columns: {row.keys()}'
         )
     return row[key]
 
@@ -126,10 +126,7 @@ def _utc(dt: Optional[datetime], source: BaseRelation, field_name: str) -> datet
 
 
 def _relation_name(rel: Optional[BaseRelation]) -> str:
-    if rel is None:
-        return "null relation"
-    else:
-        return str(rel)
+    return "null relation" if rel is None else str(rel)
 
 
 def log_code_execution(code_execution_function):
@@ -251,9 +248,7 @@ class BaseAdapter(metaclass=AdapterMeta):
 
     def nice_connection_name(self) -> str:
         conn = self.connections.get_if_exists()
-        if conn is None or conn.name is None:
-            return "<None>"
-        return conn.name
+        return "<None>" if conn is None or conn.name is None else conn.name
 
     @contextmanager
     def connection_named(self, name: str, node: Optional[ResultNode] = None) -> Iterator[None]:
@@ -304,14 +299,14 @@ class BaseAdapter(metaclass=AdapterMeta):
     def get_column_schema_from_query(self, sql: str) -> List[BaseColumn]:
         """Get a list of the Columns with names and data types from the given sql."""
         _, cursor = self.connections.add_select_query(sql)
-        columns = [
+        return [
             self.Column.create(
-                column_name, self.connections.data_type_code_to_name(column_type_code)
+                column_name,
+                self.connections.data_type_code_to_name(column_type_code),
             )
             # https://peps.python.org/pep-0249/#description
             for column_name, column_type_code, *_ in cursor.description
         ]
-        return columns
 
     @available.parse(lambda *a, **k: ("", empty_table()))
     def get_partitions_metadata(self, table: str) -> Tuple[agate.Table]:
@@ -457,13 +452,11 @@ class BaseAdapter(metaclass=AdapterMeta):
                 for relation in future.result():
                     self.cache.add(relation)
 
-        # it's possible that there were no relations in some schemas. We want
-        # to insert the schemas we query into the cache's `.schemas` attribute
-        # so we can check it later
-        cache_update: Set[Tuple[Optional[str], str]] = set()
-        for relation in cache_schemas:
-            if relation.schema:
-                cache_update.add((relation.database, relation.schema))
+        cache_update: Set[Tuple[Optional[str], str]] = {
+            (relation.database, relation.schema)
+            for relation in cache_schemas
+            if relation.schema
+        }
         self.cache.update_schemas(cache_update)
 
     def set_relations_cache(
@@ -645,10 +638,10 @@ class BaseAdapter(metaclass=AdapterMeta):
         for row in grants_table:
             grantee = row["grantee"]
             privilege = row["privilege_type"]
-            if privilege in grants_dict.keys():
+            if privilege in grants_dict:
                 grants_dict[privilege].append(grantee)
             else:
-                grants_dict.update({privilege: [grantee]})
+                grants_dict[privilege] = [grantee]
         return grants_dict
 
     ###
@@ -703,12 +696,12 @@ class BaseAdapter(metaclass=AdapterMeta):
             )
 
         columns = self.get_columns_in_relation(relation)
-        names = set(c.name.lower() for c in columns)
+        names = {c.name.lower() for c in columns}
         expanded_keys = ("scd_id", "valid_from", "valid_to")
         extra = []
         missing = []
         for legacy in expanded_keys:
-            desired = "dbt_" + legacy
+            desired = f"dbt_{legacy}"
             if desired not in names:
                 missing.append(desired)
                 if legacy in names:
@@ -804,15 +797,9 @@ class BaseAdapter(metaclass=AdapterMeta):
         schema: str,
         identifier: str,
     ) -> List[BaseRelation]:
-        matches = []
-
         search = self._make_match_kwargs(database, schema, identifier)
 
-        for relation in relations_list:
-            if relation.matches(**search):
-                matches.append(relation)
-
-        return matches
+        return [relation for relation in relations_list if relation.matches(**search)]
 
     @available.parse_none
     def get_relation(self, database: str, schema: str, identifier: str) -> Optional[BaseRelation]:
@@ -887,15 +874,10 @@ class BaseAdapter(metaclass=AdapterMeta):
         quote_columns: bool = True
         if isinstance(quote_config, bool):
             quote_columns = quote_config
-        elif quote_config is None:
-            pass
-        else:
+        elif quote_config is not None:
             raise QuoteConfigTypeError(quote_config)
 
-        if quote_columns:
-            return self.quote(column)
-        else:
-            return column
+        return self.quote(column) if quote_columns else column
 
     ###
     # Conversions: These must be implemented by concrete implementations, for
@@ -989,11 +971,14 @@ class BaseAdapter(metaclass=AdapterMeta):
             (agate.Date, cls.convert_date_type),
             (agate.TimeDelta, cls.convert_time_type),
         ]
-        for agate_cls, func in conversions:
-            if isinstance(agate_type, agate_cls):
-                return func(agate_table, col_idx)
-
-        return None
+        return next(
+            (
+                func(agate_table, col_idx)
+                for agate_cls, func in conversions
+                if isinstance(agate_type, agate_cls)
+            ),
+            None,
+        )
 
     ###
     # Operations involving the manifest
@@ -1033,15 +1018,9 @@ class BaseAdapter(metaclass=AdapterMeta):
             macro_name, self.config.project_name, project
         )
         if macro is None:
-            if project is None:
-                package_name = "any package"
-            else:
-                package_name = 'the "{}" package'.format(project)
-
+            package_name = "any package" if project is None else f'the "{project}" package'
             raise DbtRuntimeError(
-                'dbt could not find a macro with the name "{}" in {}'.format(
-                    macro_name, package_name
-                )
+                f'dbt could not find a macro with the name "{macro_name}" in {package_name}'
             )
         # This causes a reference cycle, as generate_runtime_macro_context()
         # ends up calling get_adapter, so the import has to be here.
@@ -1090,8 +1069,7 @@ class BaseAdapter(metaclass=AdapterMeta):
             manifest=manifest,
         )
 
-        results = self._catalog_filter_table(table, manifest)  # type: ignore[arg-type]
-        return results
+        return self._catalog_filter_table(table, manifest)
 
     def get_catalog(self, manifest: Manifest) -> Tuple[agate.Table, List[Exception]]:
         schema_map = self._get_catalog_schemas(manifest)
@@ -1247,14 +1225,12 @@ class BaseAdapter(metaclass=AdapterMeta):
             names = sorted((self.quote(n) for n in column_names))
         columns_csv = ", ".join(names)
 
-        sql = COLUMNS_EQUAL_SQL.format(
+        return COLUMNS_EQUAL_SQL.format(
             columns=columns_csv,
             relation_a=str(relation_a),
             relation_b=str(relation_b),
             except_op=except_operator,
         )
-
-        return sql
 
     @property
     def python_submission_helpers(self) -> Dict[str, Type[PythonJobHelper]]:
@@ -1271,9 +1247,7 @@ class BaseAdapter(metaclass=AdapterMeta):
         )
         if submission_method not in self.python_submission_helpers:
             raise NotImplementedError(
-                "Submission method {} is not supported for current adapter".format(
-                    submission_method
-                )
+                f"Submission method {submission_method} is not supported for current adapter"
             )
         job_helper = self.python_submission_helpers[submission_method](
             parsed_model, self.connections.profile.credentials
@@ -1316,9 +1290,7 @@ class BaseAdapter(metaclass=AdapterMeta):
         # The model_context should have MacroGenerator callable objects for all macros
         if macro_name not in model_context:
             raise DbtRuntimeError(
-                'dbt could not find an incremental strategy macro with the name "{}" in {}'.format(
-                    macro_name, self.config.project_name
-                )
+                f'dbt could not find an incremental strategy macro with the name "{macro_name}" in {self.config.project_name}'
             )
 
         # This returns a callable macro
@@ -1401,8 +1373,7 @@ class BaseAdapter(metaclass=AdapterMeta):
     def _parse_model_constraint(cls, raw_constraint: Dict[str, Any]) -> ModelLevelConstraint:
         try:
             ModelLevelConstraint.validate(raw_constraint)
-            c = ModelLevelConstraint.from_dict(raw_constraint)
-            return c
+            return ModelLevelConstraint.from_dict(raw_constraint)
         except Exception:
             raise DbtValidationError(f"Could not parse constraint: {raw_constraint}")
 

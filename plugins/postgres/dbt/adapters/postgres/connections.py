@@ -76,14 +76,12 @@ class PostgresConnectionManager(SQLConnectionManager):
             yield
 
         except psycopg2.DatabaseError as e:
-            logger.debug("Postgres error: {}".format(str(e)))
+            logger.debug(f"Postgres error: {str(e)}")
 
             try:
                 self.rollback_if_open()
             except psycopg2.Error:
                 logger.debug("Failed to release connection!")
-                pass
-
             raise dbt.exceptions.DbtDatabaseError(str(e).strip()) from e
 
         except Exception as e:
@@ -157,7 +155,7 @@ class PostgresConnectionManager(SQLConnectionManager):
         ]
 
         def exponential_backoff(attempt: int):
-            return attempt * attempt
+            return attempt**2
 
         return cls.retry_connection(
             connection,
@@ -180,14 +178,14 @@ class PostgresConnectionManager(SQLConnectionManager):
             # probably bad, re-raise it
             raise
 
-        sql = "select pg_terminate_backend({})".format(pid)
+        sql = f"select pg_terminate_backend({pid})"
 
-        logger.debug("Cancelling query '{}' ({})".format(connection_name, pid))
+        logger.debug(f"Cancelling query '{connection_name}' ({pid})")
 
         _, cursor = self.add_query(sql)
         res = cursor.fetchone()
 
-        logger.debug("Cancel query '{}': {}".format(connection_name, res))
+        logger.debug(f"Cancel query '{connection_name}': {res}")
 
     @classmethod
     def get_credentials(cls, credentials):

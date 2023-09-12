@@ -54,16 +54,14 @@ _log_level_map = {
 # Python do not match those for logbook, so we have to explicitly call the
 # correct function by name.
 def send_to_logger(l, level: str, log_line: str):
-    if level == "test":
-        l.debug(log_line)
-    elif level == "debug":
-        l.debug(log_line)
+    if level == "error":
+        l.error(log_line)
     elif level == "info":
         l.info(log_line)
+    elif level in {"test", "debug"}:
+        l.debug(log_line)
     elif level == "warn":
         l.warning(log_line)
-    elif level == "error":
-        l.error(log_line)
     else:
         raise AssertionError(
             f"While attempting to log {log_line}, encountered the unhandled level: {level}"
@@ -177,8 +175,7 @@ class _JsonLogger(_Logger):
 
         msg_dict = msg_to_dict(msg)
         raw_log_line = json.dumps(msg_dict, sort_keys=True, cls=dbt.utils.ForgivingJSONEncoder)
-        line = self.scrubber(raw_log_line)  # type: ignore
-        return line
+        return self.scrubber(raw_log_line)
 
 
 class EventManager:

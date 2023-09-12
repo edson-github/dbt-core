@@ -54,9 +54,9 @@ ContextMember = Union[ContextValue, ContextMethod, Unknown]
 def _get_args(func: inspect.Signature) -> Iterable[MethodArgument]:
     found_first = False
     for argname, arg in func.parameters.items():
-        if found_first is False and argname in {"self", "cls"}:
-            continue
         if found_first is False:
+            if argname in {"self", "cls"}:
+                continue
             found_first = True
 
         yield MethodArgument(

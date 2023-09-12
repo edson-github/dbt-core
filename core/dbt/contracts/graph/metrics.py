@@ -69,8 +69,7 @@ class ResolvedMetricReference(MetricReference):
 
     def full_metric_dependency(self):
         """Returns a unique list of all upstream metric names."""
-        to_return = list(set(self.parent_metrics_names(self.node, self.manifest)))
-        return to_return
+        return list(set(self.parent_metrics_names(self.node, self.manifest)))
 
     def base_metric_dependency(self) -> List[str]:
         """Returns a unique list of names for all upstream non-derived metrics."""
@@ -93,6 +92,6 @@ class ResolvedMetricReference(MetricReference):
     def derived_metric_dependency_depth(self) -> List[Dict[str, int]]:
         """Returns a list of {<metric_name>: <depth_from_initial_metric>} for all upstream metrics."""
         metric_depth_count = 1
-        to_return = list(self.reverse_dag_parsing(self.node, self.manifest, metric_depth_count))
-
-        return to_return
+        return list(
+            self.reverse_dag_parsing(self.node, self.manifest, metric_depth_count)
+        )

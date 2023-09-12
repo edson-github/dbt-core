@@ -104,14 +104,14 @@ class BaseTestPrePost(object):
             "invocation_id",
             "thread_id",
         ]
-        field_list = ", ".join(['"{}"'.format(f) for f in fields])
+        field_list = ", ".join([f'"{f}"' for f in fields])
         query = f"select {field_list} from {project.test_schema}.on_model_hook where test_state = '{state}'"
 
         vals = project.run_sql(query, fetch="all")
         assert len(vals) != 0, "nothing inserted into hooks table"
         assert len(vals) >= count, "too few rows in hooks table"
         assert len(vals) <= count, "too many rows in hooks table"
-        return [{k: v for k, v in zip(fields, val)} for val in vals]
+        return [dict(zip(fields, val)) for val in vals]
 
     def check_hooks(self, state, project, host, count=1):
         ctxs = self.get_ctx_vars(state, count=count, project=project)

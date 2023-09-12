@@ -75,21 +75,10 @@ def _cmp(a, b):
 @dataclass
 class VersionSpecifier(VersionSpecification):
     def to_version_string(self, skip_matcher=False):
-        prerelease = ""
-        build = ""
-        matcher = ""
-
-        if self.prerelease:
-            prerelease = "-" + self.prerelease
-
-        if self.build:
-            build = "+" + self.build
-
-        if not skip_matcher:
-            matcher = self.matcher
-        return "{}{}.{}.{}{}{}".format(
-            matcher, self.major, self.minor, self.patch, prerelease, build
-        )
+        prerelease = f"-{self.prerelease}" if self.prerelease else ""
+        build = f"+{self.build}" if self.build else ""
+        matcher = self.matcher if not skip_matcher else ""
+        return f"{matcher}{self.major}.{self.minor}.{self.patch}{prerelease}{build}"
 
     @classmethod
     def from_version_string(cls, version_string):
@@ -130,18 +119,11 @@ class VersionSpecifier(VersionSpecification):
         for key in ["major", "minor", "patch", "prerelease"]:
             (a, b) = (getattr(self, key), getattr(other, key))
             if key == "prerelease":
-                if a is None and b is None:
-                    continue
                 if a is None:
-                    if self.matcher == Matchers.LESS_THAN:
-                        # If 'a' is not a pre-release but 'b' is, and b must be
-                        # less than a, return -1 to prevent installations of
-                        # pre-releases with greater base version than a
-                        # maximum specified non-pre-release version.
-                        return -1
-                    # Otherwise, stable releases are considered greater than
-                    # pre-release
-                    return 1
+                    if b is None:
+                        continue
+                    else:
+                        return -1 if self.matcher == Matchers.LESS_THAN else 1
                 if b is None:
                     return -1
 
@@ -149,15 +131,12 @@ class VersionSpecifier(VersionSpecification):
                 prcmp = self._nat_cmp(a, b)
                 if prcmp != 0:  # either -1 or 1
                     return prcmp
-                # else is equal and will fall through
+                        # else is equal and will fall through
 
-            else:  # major/minor/patch, should all be numbers
-                if int(a) > int(b):
-                    return 1
-                elif int(a) < int(b):
-                    return -1
-                # else is equal and will fall through
-
+            elif int(a) > int(b):
+                return 1
+            elif int(a) < int(b):
+                return -1
         equal = (
             self.matcher == Matchers.GREATER_THAN_OR_EQUAL
             and other.matcher == Matchers.LESS_THAN_OR_EQUAL
@@ -187,10 +166,7 @@ class VersionSpecifier(VersionSpecification):
             )
             or (self.is_lower_bound and other.is_upper_bound)
         )
-        if gt:
-            return 1
-
-        return 0
+        return 1 if gt else 0
 
     def __lt__(self, other):
         return self.compare(other) == -1
@@ -272,15 +248,11 @@ class VersionRange:
         if not (a.is_exact or b.is_exact):
             comparison = a.compare(b) < 0
 
-            if comparison:
-                return b
-            else:
-                return a
-
+            return b if comparison else a
         elif a.is_exact:
             return self._try_combine_lower_bound_with_exact(b, a)
 
-        elif b.is_exact:
+        else:
             return self._try_combine_lower_bound_with_exact(a, b)
 
     def _try_combine_upper_bound_with_exact(self, upper, exact):
@@ -300,15 +272,11 @@ class VersionRange:
         if not (a.is_exact or b.is_exact):
             comparison = a.compare(b) > 0
 
-            if comparison:
-                return b
-            else:
-                return a
-
+            return b if comparison else a
         elif a.is_exact:
             return self._try_combine_upper_bound_with_exact(b, a)
 
-        elif b.is_exact:
+        else:
             return self._try_combine_upper_bound_with_exact(a, b)
 
     def reduce(self, other):
@@ -412,7 +380,7 @@ def reduce_versions(*args):
             to_return = to_return.reduce(version_specifier.to_range())
     except VersionsNotCompatibleError:
         raise VersionsNotCompatibleError(
-            "Could not find a satisfactory version from options: {}".format([str(a) for a in args])
+            f"Could not find a satisfactory version from options: {[str(a) for a in args]}"
         )
 
     return to_return
@@ -467,7 +435,7 @@ def filter_installable(versions: List[str], install_prerelease: bool) -> List[st
             installable.append(version)
             installable_dict[str(version)] = version_string
     sorted_installable = sorted(installable)
-    sorted_installable_original_versions = [
-        str(installable_dict.get(str(version))) for version in sorted_installable
+    return [
+        str(installable_dict.get(str(version)))
+        for version in sorted_installable
     ]
-    return sorted_installable_original_versions

@@ -228,15 +228,13 @@ class UnparsedModelUpdate(UnparsedNodeUpdate):
                 f"get_columns_for_version called for version '{version}' not in version map"
             )
 
-        version_columns = []
         unparsed_version = self._version_map[version]
-        for base_column in self.columns:
-            if unparsed_version.include_exclude.includes(base_column.name):
-                version_columns.append(base_column)
-
-        for column in unparsed_version.unparsed_columns:
-            version_columns.append(column)
-
+        version_columns = [
+            base_column
+            for base_column in self.columns
+            if unparsed_version.include_exclude.includes(base_column.name)
+        ]
+        version_columns.extend(iter(unparsed_version.unparsed_columns))
         return version_columns
 
     def get_tests_for_version(self, version: NodeVersion) -> List[TestDef]:
@@ -266,7 +264,7 @@ class TimePeriod(StrEnum):
     day = "day"
 
     def plural(self) -> str:
-        return str(self) + "s"
+        return f"{str(self)}s"
 
 
 @dataclass
@@ -567,7 +565,7 @@ class MetricTimePeriod(StrEnum):
     year = "year"
 
     def plural(self) -> str:
-        return str(self) + "s"
+        return f"{str(self)}s"
 
 
 @dataclass
@@ -637,7 +635,7 @@ class UnparsedMetric(dbtClassMixin):
 
             if errors:
                 raise ParsingError(
-                    f"The metric name '{data['name']}' is invalid.  It {', '.join(e for e in errors)}"
+                    f"The metric name '{data['name']}' is invalid.  It {', '.join(errors)}"
                 )
 
 

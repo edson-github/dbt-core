@@ -116,19 +116,18 @@ class InitTask(BaseTask):
                 target = self.generate_target_from_input(
                     profile_template_local[key][choice], target
                 )
+            elif key.startswith("_fixed"):
+                # _fixed prefixed keys are not presented to the user
+                target[key[7:]] = value
             else:
-                if key.startswith("_fixed"):
-                    # _fixed prefixed keys are not presented to the user
-                    target[key[7:]] = value
-                else:
-                    hide_input = value.get("hide_input", False)
-                    default = value.get("default", None)
-                    hint = value.get("hint", None)
-                    type = click_type_mapping[value.get("type", None)]
-                    text = key + (f" ({hint})" if hint else "")
-                    target[key] = click.prompt(
-                        text, default=default, hide_input=hide_input, type=type
-                    )
+                hide_input = value.get("hide_input", False)
+                default = value.get("default", None)
+                hint = value.get("hint", None)
+                type = click_type_mapping[value.get("type", None)]
+                text = key + (f" ({hint})" if hint else "")
+                target[key] = click.prompt(
+                    text, default=default, hide_input=hide_input, type=type
+                )
         return target
 
     def get_profile_name_from_current_project(self) -> str:
@@ -199,11 +198,10 @@ class InitTask(BaseTask):
         with open(profiles_file, "r") as f:
             profiles = yaml.safe_load(f) or {}
         if profile_name in profiles.keys():
-            response = click.confirm(
+            return click.confirm(
                 f"The profile {profile_name} already exists in "
                 f"{profiles_file}. Continue and overwrite it?"
             )
-            return response
         else:
             return True
 
@@ -242,7 +240,7 @@ class InitTask(BaseTask):
             internal_package_names.update(f"dbt_{adapter_name}")
         while not ProjectName.is_valid(name) or name in internal_package_names:
             if name:
-                click.echo(name + " is not a valid project name.")
+                click.echo(f"{name} is not a valid project name.")
             name = click.prompt("Enter a name for your project (letters, digits, underscore)")
 
         return name

@@ -75,34 +75,33 @@ class PostgresIndexConfig(RelationConfigBase, RelationConfigValidationMixin):
 
     @classmethod
     def parse_model_node(cls, model_node_entry: dict) -> dict:
-        config_dict = {
+        return {
             "column_names": set(model_node_entry.get("columns", set())),
             "unique": model_node_entry.get("unique"),
             "method": model_node_entry.get("type"),
         }
-        return config_dict
 
     @classmethod
     def parse_relation_results(cls, relation_results_entry: agate.Row) -> dict:
-        config_dict = {
+        return {
             "name": relation_results_entry.get("name"),
-            "column_names": set(relation_results_entry.get("column_names", "").split(",")),
+            "column_names": set(
+                relation_results_entry.get("column_names", "").split(",")
+            ),
             "unique": relation_results_entry.get("unique"),
             "method": relation_results_entry.get("method"),
         }
-        return config_dict
 
     @property
     def as_node_config(self) -> dict:
         """
         Returns: a dictionary that can be passed into `get_create_index_sql()`
         """
-        node_config = {
+        return {
             "columns": list(self.column_names),
             "unique": self.unique,
             "type": self.method.value,
         }
-        return node_config
 
 
 @dataclass(frozen=True, eq=True, unsafe_hash=True)

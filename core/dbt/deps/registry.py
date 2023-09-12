@@ -50,7 +50,7 @@ class RegistryPinnedPackage(RegistryPackageMixin, PinnedPackage):
         return self.version_latest
 
     def nice_version_name(self):
-        return "version {}".format(self.version)
+        return f"version {self.version}"
 
     def _fetch_metadata(self, project, renderer) -> RegistryPackageMetadata:
         dct = registry.package_version(self.package, self.version)
@@ -96,7 +96,7 @@ class RegistryUnpinnedPackage(RegistryPackageMixin, UnpinnedPackage[RegistryPinn
         try:
             range_ = semver.reduce_versions(*self.versions)
         except VersionsNotCompatibleError as e:
-            new_msg = "Version error for package {}: {}".format(self.name, e)
+            new_msg = f"Version error for package {self.name}: {e}"
             raise DependencyError(new_msg) from e
         flags = get_flags()
         should_version_check = bool(flags.VERSION_CHECK)

@@ -47,22 +47,22 @@ class TestResultData(dbtClassMixin):
         data["should_error"] = cls.convert_bool_type(data["should_error"])
         super().validate(data)
 
-    def convert_bool_type(field) -> bool:
+    def convert_bool_type(self) -> bool:
         # if it's type string let python decide if it's a valid value to convert to bool
-        if isinstance(field, str):
+        if isinstance(self, str):
             try:
-                return bool(strtobool(field))  # type: ignore
+                return bool(strtobool(self))
             except ValueError:
-                raise BooleanError(field, "get_test_sql")
+                raise BooleanError(self, "get_test_sql")
 
         # need this so we catch both true bools and 0/1
-        return bool(field)
+        return bool(self)
 
 
 class TestRunner(CompileRunner):
     def describe_node(self):
         node_name = self.node.name
-        return "test {}".format(node_name)
+        return f"test {node_name}"
 
     def print_result_line(self, result):
         model = result.node
@@ -107,7 +107,7 @@ class TestRunner(CompileRunner):
 
         if "config" not in context:
             raise DbtInternalError(
-                "Invalid materialization context generated, missing config: {}".format(context)
+                f"Invalid materialization context generated, missing config: {context}"
             )
 
         # generate materialization macro

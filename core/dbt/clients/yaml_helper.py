@@ -22,7 +22,7 @@ Raw Error:
 
 def line_no(i, line, width=3):
     line_number = str(i).ljust(width)
-    return "{}| {}".format(line_number, line)
+    return f"{line_number}| {line}"
 
 
 def prefix_with_line_numbers(string, no_start, no_end):

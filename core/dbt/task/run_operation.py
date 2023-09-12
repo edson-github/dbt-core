@@ -38,7 +38,7 @@ class RunOperationTask(ConfiguredTask):
 
         macro_kwargs = self.args.args
 
-        with adapter.connection_named("macro_{}".format(macro_name)):
+        with adapter.connection_named(f"macro_{macro_name}"):
             adapter.clear_transaction()
             res = adapter.execute_macro(
                 macro_name, project=package_name, kwargs=macro_kwargs, manifest=self.manifest
@@ -73,14 +73,13 @@ class RunOperationTask(ConfiguredTask):
             else None
         )
 
-        if macro:
-            unique_id = macro.unique_id
-            fqn = unique_id.split(".")
-        else:
+        if not macro:
             raise DbtInternalError(
                 f"dbt could not find a macro with the name '{macro_name}' in any package"
             )
 
+        unique_id = macro.unique_id
+        fqn = unique_id.split(".")
         run_result = RunResult(
             adapter_response={},
             status=RunStatus.Success if success else RunStatus.Error,

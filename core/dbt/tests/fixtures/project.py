@@ -65,8 +65,7 @@ def prefix():
     _randint = random.randint(0, 9999)
     _runtime_timedelta = datetime.utcnow() - datetime(1970, 1, 1, 0, 0, 0)
     _runtime = (int(_runtime_timedelta.total_seconds() * 1e6)) + _runtime_timedelta.microseconds
-    prefix = f"test{_runtime}{_randint:04}"
-    return prefix
+    return f"test{_runtime}{_randint:04}"
 
 
 # Every test has a unique schema
@@ -75,8 +74,7 @@ def unique_schema(request, prefix) -> str:
     test_file = request.module.__name__
     # We only want the last part of the name
     test_file = test_file.split(".")[-1]
-    unique_schema = f"{prefix}_{test_file}"
-    return unique_schema
+    return f"{prefix}_{test_file}"
 
 
 # Create a directory for the profile using tmpdir fixture
@@ -155,7 +153,7 @@ def dbt_profile_data(unique_schema, dbt_profile_target, profiles_config_update):
     profile["test"]["outputs"]["default"] = target
 
     if profiles_config_update:
-        profile.update(profiles_config_update)
+        profile |= profiles_config_update
     return profile
 
 
@@ -184,7 +182,7 @@ def dbt_project_yml(project_root, project_config_update):
     }
     if project_config_update:
         if isinstance(project_config_update, dict):
-            project_config.update(project_config_update)
+            project_config |= project_config_update
         elif isinstance(project_config_update, str):
             updates = yaml.safe_load(project_config_update)
             project_config.update(updates)
@@ -220,10 +218,7 @@ def packages():
 @pytest.fixture(scope="class")
 def packages_yml(project_root, packages):
     if packages:
-        if isinstance(packages, str):
-            data = packages
-        else:
-            data = yaml.safe_dump(packages)
+        data = packages if isinstance(packages, str) else yaml.safe_dump(packages)
         write_file(data, project_root, "packages.yml")
 
 
@@ -237,10 +232,7 @@ def selectors():
 @pytest.fixture(scope="class")
 def selectors_yml(project_root, selectors):
     if selectors:
-        if isinstance(selectors, str):
-            data = selectors
-        else:
-            data = yaml.safe_dump(selectors)
+        data = selectors if isinstance(selectors, str) else yaml.safe_dump(selectors)
         write_file(data, project_root, "selectors.yml")
 
 
@@ -301,10 +293,7 @@ def write_project_files_recursively(path, file_dict):
     suffix_list = [".sql", ".csv", ".md", ".txt", ".py"]
     for name, value in file_dict.items():
         if name.endswith(".yml") or name.endswith(".yaml"):
-            if isinstance(value, str):
-                data = value
-            else:
-                data = yaml.safe_dump(value)
+            data = value if isinstance(value, str) else yaml.safe_dump(value)
             write_file(data, path, name)
         elif name.endswith(tuple(suffix_list)):
             write_file(value, path, name)
@@ -460,9 +449,9 @@ class TestProjInfo:
                 where {}
                 order by table_name
                 """
-        sql = sql.format("{} ilike '{}'".format("table_schema", self.test_schema))
+        sql = sql.format(f"table_schema ilike '{self.test_schema}'")
         result = self.run_sql(sql, fetch="all")
-        return {model_name: materialization for (model_name, materialization) in result}
+        return dict(result)
 
 
 # This is the main fixture that is used in all functional tests. It pulls in the other

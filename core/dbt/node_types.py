@@ -77,9 +77,7 @@ class NodeType(StrEnum):
         ]
 
     def pluralize(self) -> str:
-        if self is self.Analysis:
-            return "analyses"
-        return f"{self}s"
+        return "analyses" if self is self.Analysis else f"{self}s"
 
 
 class RunHookType(StrEnum):

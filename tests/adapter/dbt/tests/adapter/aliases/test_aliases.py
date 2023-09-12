@@ -121,8 +121,8 @@ class BaseSameAliasDifferentDatabases:
             "models": {
                 "test": {
                     "alias": "duped_alias",
-                    "model_b": {"schema": unique_schema + "_alt"},
-                },
+                    "model_b": {"schema": f"{unique_schema}_alt"},
+                }
             },
         }
 

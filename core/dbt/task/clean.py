@@ -51,4 +51,4 @@ def is_protected_path(path: str, model_paths: List[str], test_paths: List[str]) 
 def is_project_path(path: str) -> bool:
     """This function identifies project paths."""
     proj_path = os.path.abspath(".")
-    return not os.path.commonprefix([proj_path, os.path.abspath(path)]) == proj_path
+    return os.path.commonprefix([proj_path, os.path.abspath(path)]) != proj_path

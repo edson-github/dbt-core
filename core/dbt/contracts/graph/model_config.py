@@ -25,11 +25,7 @@ def _get_meta_value(cls: Type[M], fld: Field, key: str, default: Any) -> M:
     # a metadata field might exist. If it does, it might have a matching key.
     # If it has both, make sure the value is valid and return it. If it
     # doesn't, return the default.
-    if fld.metadata:
-        value = fld.metadata.get(key, default)
-    else:
-        value = default
-
+    value = fld.metadata.get(key, default) if fld.metadata else default
     try:
         return cls(value)
     except ValueError as exc:
@@ -37,10 +33,7 @@ def _get_meta_value(cls: Type[M], fld: Field, key: str, default: Any) -> M:
 
 
 def _set_meta_value(obj: M, key: str, existing: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    if existing is None:
-        result = {}
-    else:
-        result = existing.copy()
+    result = {} if existing is None else existing.copy()
     result.update({key: obj})
     return result
 
@@ -123,10 +116,7 @@ def metas(*metas: Metadata) -> Dict[str, Any]:
 
 
 def _listify(value: Any) -> List:
-    if isinstance(value, list):
-        return value[:]
-    else:
-        return [value]
+    return value[:] if isinstance(value, list) else [value]
 
 
 # There are two versions of this code. The one here is for config
@@ -154,9 +144,7 @@ def _merge_field_value(
             raise DbtInternalError(f"expected dict, got {self_value}")
         if not isinstance(other_value, dict):
             raise DbtInternalError(f"expected dict, got {other_value}")
-        new_dict = {}
-        for key in self_value.keys():
-            new_dict[key] = _listify(self_value[key])
+        new_dict = {key: _listify(self_value[key]) for key in self_value.keys()}
         for key in other_value.keys():
             extend = False
             new_key = key
@@ -179,10 +167,11 @@ def _merge_field_value(
 
 
 def insensitive_patterns(*patterns: str):
-    lowercased = []
-    for pattern in patterns:
-        lowercased.append("".join("[{}{}]".format(s.upper(), s.lower()) for s in pattern))
-    return "^({})$".format("|".join(lowercased))
+    lowercased = [
+        "".join(f"[{s.upper()}{s.lower()}]" for s in pattern)
+        for pattern in patterns
+    ]
+    return f'^({"|".join(lowercased)})$'
 
 
 class Severity(str):
@@ -239,9 +228,7 @@ class BaseConfig(AdditionalPropertiesAllowed, Replaceable):
 
     def __delitem__(self, key):
         if hasattr(self, key):
-            msg = (
-                'Error, tried to delete config key "{}": Cannot delete ' "built-in keys"
-            ).format(key)
+            msg = f'Error, tried to delete config key "{key}": Cannot delete built-in keys'
             raise CompilationError(msg)
         else:
             del self._extra[key]
@@ -272,9 +259,7 @@ class BaseConfig(AdditionalPropertiesAllowed, Replaceable):
     ) -> bool:
         if key not in unrendered and key not in other:
             return True
-        elif key not in unrendered and key in other:
-            return False
-        elif key in unrendered and key not in other:
+        elif key not in unrendered or key not in other:
             return False
         else:
             return unrendered[key] == other[key]
@@ -655,12 +640,9 @@ RESOURCE_TYPES: Dict[NodeType, Type[BaseConfig]] = {
 # base resource types are like resource types, except nothing has mandatory
 # configs.
 BASE_RESOURCE_TYPES: Dict[NodeType, Type[BaseConfig]] = RESOURCE_TYPES.copy()
-BASE_RESOURCE_TYPES.update({NodeType.Snapshot: EmptySnapshotConfig})
+BASE_RESOURCE_TYPES[NodeType.Snapshot] = EmptySnapshotConfig
 
 
 def get_config_for(resource_type: NodeType, base=False) -> Type[BaseConfig]:
-    if base:
-        lookup = BASE_RESOURCE_TYPES
-    else:
-        lookup = RESOURCE_TYPES
+    lookup = BASE_RESOURCE_TYPES if base else RESOURCE_TYPES
     return lookup.get(resource_type, NodeConfig)

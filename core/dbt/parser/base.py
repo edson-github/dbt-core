@@ -86,12 +86,11 @@ class RelationUpdate:
         package_names = config.dependencies.keys() if config.dependencies else {}
         package_updaters = {}
         for package_name in package_names:
-            package_macro = manifest.find_generate_macro_by_name(
+            if package_macro := manifest.find_generate_macro_by_name(
                 component=component,
                 root_project_name=config.project_name,
                 imported_package=package_name,
-            )
-            if package_macro:
+            ):
                 imported_macro_context = generate_generate_name_macro_context(
                     package_macro, config, manifest
                 )
@@ -234,9 +233,7 @@ class ConfiguredParser(
             "unique_id": self.generate_unique_id(name),
             "config": self.config_dict(config),
             "checksum": block.file.checksum.to_dict(omit_none=True),
-        }
-        dct.update(kwargs)
-
+        } | kwargs
         try:
             return self.parse_from_dict(dct, validate=True)
         except ValidationError as exc:

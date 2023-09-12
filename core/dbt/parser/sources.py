@@ -249,7 +249,7 @@ class SourcePatcher:
         tags = list(itertools.chain.from_iterable(tags_sources))
 
         generic_test_parser = self.get_generic_test_parser_for(target.package_name)
-        node = generic_test_parser.parse_generic_test(
+        return generic_test_parser.parse_generic_test(
             target=target,
             test=test,
             tags=tags,
@@ -257,7 +257,6 @@ class SourcePatcher:
             schema_file_id=target.file_id,
             version=None,
         )
-        return node
 
     def _generate_source_config(self, target: UnpatchedSourceDefinition, rendered: bool):
         generator: BaseContextConfigGenerator
@@ -267,9 +266,9 @@ class SourcePatcher:
             generator = UnrenderedConfigGenerator(self.root_project)
 
         # configs with precendence set
-        precedence_configs = dict()
+        precedence_configs = {}
         # first apply source configs
-        precedence_configs.update(target.source.config)
+        precedence_configs |= target.source.config
         # then overrite anything that is defined on source tables
         # this is not quite complex enough for configs that can be set as top-level node keys, but
         # it works while source configs can only include `enabled`.
@@ -297,9 +296,7 @@ class SourcePatcher:
                 unused_tables[key] = None
             elif patch.tables is not None:
                 table_patches = {t.name for t in patch.tables}
-                unused = table_patches - self.patches_used[key]
-                # don't add unused tables, the
-                if unused:
+                if unused := table_patches - self.patches_used[key]:
                     # because patches are required to be unique, we can safely
                     # write without looking
                     unused_tables[key] = unused
@@ -321,10 +318,10 @@ class SourcePatcher:
             if table_names is None:
                 unused_tables_formatted.append(f"  - Source {patch_name} (in {patch.path})")
             else:
-                for table_name in sorted(table_names):
-                    unused_tables_formatted.append(
-                        f"  - Source table {patch_name}.{table_name} " f"(in {patch.path})"
-                    )
+                unused_tables_formatted.extend(
+                    f"  - Source table {patch_name}.{table_name} (in {patch.path})"
+                    for table_name in sorted(table_names)
+                )
         return unused_tables_formatted
 
 

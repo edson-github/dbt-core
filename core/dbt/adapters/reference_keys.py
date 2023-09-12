@@ -8,10 +8,7 @@ _ReferenceKey = namedtuple("_ReferenceKey", "database schema identifier")
 
 
 def lowercase(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return None
-    else:
-        return value.lower()
+    return None if value is None else value.lower()
 
 
 # For backwards compatibility. New code should use _make_ref_key

@@ -93,9 +93,7 @@ class ContextMember:
         self.inner = value
 
     def key(self, default: str) -> str:
-        if self.name is None:
-            return default
-        return self.name
+        return default if self.name is None else self.name
 
 
 def contextmember(value: Optional[str] = None) -> Callable:
@@ -107,14 +105,14 @@ def contextproperty(value: Optional[str] = None) -> Callable:
 
 
 class ContextMeta(type):
-    def __new__(mcls, name, bases, dct: Dict[str, Any]) -> ContextMeta:
+    def __new__(cls, name, bases, dct: Dict[str, Any]) -> ContextMeta:
         context_members: Dict[str, Any] = {}
         context_attrs: Dict[str, Any] = {}
         new_dct: Dict[str, Any] = {}
 
         for base in bases:
-            context_members.update(getattr(base, "_context_members_", {}))
-            context_attrs.update(getattr(base, "_context_attrs_", {}))
+            context_members |= getattr(base, "_context_members_", {})
+            context_attrs |= getattr(base, "_context_attrs_", {})
 
         for key, value in dct.items():
             if isinstance(value, ContextMember):
@@ -125,7 +123,7 @@ class ContextMeta(type):
             new_dct[key] = value
         new_dct["_context_members_"] = context_members
         new_dct["_context_attrs_"] = context_attrs
-        return type.__new__(mcls, name, bases, new_dct)
+        return type.__new__(cls, name, bases, new_dct)
 
 
 class Var:
@@ -147,10 +145,7 @@ class Var:
 
     @property
     def node_name(self) -> str:
-        if self._node is not None:
-            return self._node.name
-        else:
-            return "<Configuration>"
+        return self._node.name if self._node is not None else "<Configuration>"
 
     def get_missing_var(self, var_name: str) -> NoReturn:
         # TODO function name implies a non exception resolution
@@ -162,10 +157,7 @@ class Var:
     def get_rendered_var(self, var_name: str) -> Any:
         raw = self._merged[var_name]
         # if bool/int/float/etc are passed in, don't compile anything
-        if not isinstance(raw, str):
-            return raw
-
-        return get_rendered(raw, dict(self._context))
+        return get_rendered(raw, dict(self._context)) if isinstance(raw, str) else raw
 
     def __call__(self, var_name: str, default: Any = _VAR_NOTSET) -> Any:
         if self.has_var(var_name):
@@ -308,16 +300,15 @@ class BaseContext(metaclass=ContextMeta):
         elif default is not None:
             return_value = default
 
-        if return_value is not None:
-            # If the environment variable is set from a default, store a string indicating
-            # that so we can skip partial parsing.  Otherwise the file will be scheduled for
-            # reparsing. If the default changes, the file will have been updated and therefore
-            # will be scheduled for reparsing anyways.
-            self.env_vars[var] = return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
-
-            return return_value
-        else:
+        if return_value is None:
             raise EnvVarMissingError(var)
+        # If the environment variable is set from a default, store a string indicating
+        # that so we can skip partial parsing.  Otherwise the file will be scheduled for
+        # reparsing. If the default changes, the file will have been updated and therefore
+        # will be scheduled for reparsing anyways.
+        self.env_vars[var] = return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
+
+        return return_value
 
     if os.environ.get("DBT_MACRO_DEBUGGING"):
 
@@ -682,16 +673,16 @@ class BaseContext(metaclass=ContextMeta):
 
         dict_diff = {}
         dict_b_lowered = {k.casefold(): [x.casefold() for x in v] for k, v in dict_b.items()}
-        for k in dict_a:
-            if k.casefold() in dict_b_lowered.keys():
-                diff = []
-                for v in dict_a[k]:
-                    if v.casefold() not in dict_b_lowered[k.casefold()]:
-                        diff.append(v)
-                if diff:
-                    dict_diff.update({k: diff})
+        for k, v_ in dict_a.items():
+            if k.casefold() in dict_b_lowered:
+                if diff := [
+                    v
+                    for v in v_
+                    if v.casefold() not in dict_b_lowered[k.casefold()]
+                ]:
+                    dict_diff[k] = diff
             else:
-                dict_diff.update({k: dict_a[k]})
+                dict_diff[k] = dict_a[k]
         return dict_diff
 
     @contextmember()

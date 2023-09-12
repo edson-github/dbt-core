@@ -68,9 +68,7 @@ def _dict_if_none(value):
 
 def _list_if_none_or_string(value):
     value = _list_if_none(value)
-    if isinstance(value, str):
-        return [value]
-    return value
+    return [value] if isinstance(value, str) else value
 
 
 class ProjectPostprocessor(Dict[Keypath, Callable[[Any], Any]]):
@@ -199,22 +197,18 @@ class SecretRenderer(BaseRenderer):
             else:
                 raise ex
 
-        # Now, detect instances of the placeholder value ($$$DBT_SECRET_START...DBT_SECRET_END$$$)
-        # and replace them with the actual secret value
-        if SECRET_ENV_PREFIX in str(rendered):
-            search_group = f"({SECRET_ENV_PREFIX}(.*))"
-            pattern = SECRET_PLACEHOLDER.format(search_group).replace("$", r"\$")
-            m = re.search(
-                pattern,
-                rendered,
-            )
-            if m:
-                found = m.group(1)
-                value = os.environ[found]
-                replace_this = SECRET_PLACEHOLDER.format(found)
-                return rendered.replace(replace_this, value)
-        else:
+        if SECRET_ENV_PREFIX not in str(rendered):
             return rendered
+        search_group = f"({SECRET_ENV_PREFIX}(.*))"
+        pattern = SECRET_PLACEHOLDER.format(search_group).replace("$", r"\$")
+        if m := re.search(
+            pattern,
+            rendered,
+        ):
+            found = m.group(1)
+            value = os.environ[found]
+            replace_this = SECRET_PLACEHOLDER.format(found)
+            return rendered.replace(replace_this, value)
 
 
 class ProfileRenderer(SecretRenderer):

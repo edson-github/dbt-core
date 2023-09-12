@@ -17,4 +17,4 @@ def profiler(enable: bool, outfile: str) -> Generator[Any, None, None]:
             profiler.disable()
             stats = Stats(profiler)
             stats.sort_stats("tottime")
-            stats.dump_stats(str(outfile))
+            stats.dump_stats(outfile)

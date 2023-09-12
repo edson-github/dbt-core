@@ -77,8 +77,7 @@ def load_source_file(
         source_file.checksum = FileHash.from_contents(source_file.contents)
 
     if parse_file_type == ParseFileType.Schema and source_file.contents:
-        dfy = yaml_from_file(source_file)
-        if dfy:
+        if dfy := yaml_from_file(source_file):
             validate_yaml(source_file.path.original_file_path, dfy)
             source_file.dfy = dfy
     return source_file
@@ -137,16 +136,14 @@ def get_source_files(project, paths, extension, parse_file_type, saved_files, ig
     for fp in fp_list:
         if parse_file_type == ParseFileType.Seed:
             fb_list.append(load_seed_source_file(fp, project.project_name))
-        # singular tests live in /tests but only generic tests live
-        # in /tests/generic so we want to skip those
         else:
             if parse_file_type == ParseFileType.SingularTest:
                 path = pathlib.Path(fp.relative_path)
                 if path.parts[0] == "generic":
                     continue
-            file = load_source_file(fp, parse_file_type, project.project_name, saved_files)
-            # only append the list if it has contents. added to fix #3568
-            if file:
+            if file := load_source_file(
+                fp, parse_file_type, project.project_name, saved_files
+            ):
                 fb_list.append(file)
     return fb_list
 
@@ -272,11 +269,10 @@ class ReadFilesFromDiff:
                 source_file.path.modification_time = input_file.modification_time
                 # Handle creation of dictionary version of schema file content
                 if isinstance(source_file, SchemaSourceFile) and source_file.contents:
-                    dfy = yaml_from_file(source_file)
-                    if dfy:
+                    if dfy := yaml_from_file(source_file):
                         validate_yaml(source_file.path.original_file_path, dfy)
                         source_file.dfy = dfy
-                    # TODO: ensure we have a file object even for empty files, such as schema files
+                                # TODO: ensure we have a file object even for empty files, such as schema files
 
         # Now the new files
         for input_file in self.file_diff.added:
@@ -335,13 +331,11 @@ class ReadFilesFromDiff:
                 parse_file_type=parse_ft,
             )
             if source_file_cls == SchemaSourceFile:
-                dfy = yaml_from_file(source_file)
-                if dfy:
-                    validate_yaml(source_file.path.original_file_path, dfy)
-                    source_file.dfy = dfy
-                else:
+                if not (dfy := yaml_from_file(source_file)):
                     # don't include in files because no content
                     continue
+                validate_yaml(source_file.path.original_file_path, dfy)
+                source_file.dfy = dfy
             self.files[source_file.file_id] = source_file
 
     def get_project_name(self, path):
@@ -376,7 +370,7 @@ class ReadFilesFromDiff:
 
 
 def get_file_types_for_project(project):
-    file_types = {
+    return {
         ParseFileType.Macro: {
             "paths": project.macro_paths,
             "extensions": [".sql"],
@@ -423,4 +417,3 @@ def get_file_types_for_project(project):
             "parser": "SchemaParser",
         },
     }
-    return file_types

@@ -163,17 +163,11 @@ class RefArgs(dbtClassMixin):
 
     @property
     def positional_args(self) -> List[str]:
-        if self.package:
-            return [self.package, self.name]
-        else:
-            return [self.name]
+        return [self.package, self.name] if self.package else [self.name]
 
     @property
     def keyword_args(self) -> Dict[str, Optional[NodeVersion]]:
-        if self.version:
-            return {"version": self.version}
-        else:
-            return {}
+        return {"version": self.version} if self.version else {}
 
 
 class ConstraintType(str, Enum):
@@ -301,7 +295,7 @@ class NodeInfoMixin:
 
     @property
     def node_info(self):
-        node_info = {
+        return {
             "node_path": getattr(self, "path", None),
             "node_name": getattr(self, "name", None),
             "unique_id": getattr(self, "unique_id", None),
@@ -318,7 +312,6 @@ class NodeInfoMixin:
                 "relation_name": getattr(self, "relation_name", None),
             },
         }
-        return node_info
 
     def update_event_status(self, **kwargs):
         for k, v in kwargs.items():
@@ -326,7 +319,7 @@ class NodeInfoMixin:
         set_log_contextvars(node_info=self.node_info)
 
     def clear_event_status(self):
-        self._event_status = dict()
+        self._event_status = {}
 
 
 @dataclass
@@ -354,8 +347,7 @@ class ParsedNode(NodeInfoMixin, ParsedNodeMandatory, SerializableType):
         else:
             #  Many-to-one relationship of nodes to files.
             path = os.path.join(self.original_file_path, self.path)
-        target_write_path = os.path.join(target_path, subdirectory, self.package_name, path)
-        return target_write_path
+        return os.path.join(target_path, subdirectory, self.package_name, path)
 
     def write_node(self, project_root: str, compiled_path, compiled_code: str):
         if os.path.isabs(compiled_path):
@@ -379,27 +371,26 @@ class ParsedNode(NodeInfoMixin, ParsedNodeMandatory, SerializableType):
         # in fields that would allow 'from_dict' to distinguis
         # between them.
         resource_type = dct["resource_type"]
-        if resource_type == "model":
-            return ModelNode.from_dict(dct)
-        elif resource_type == "analysis":
+        if resource_type == "analysis":
             return AnalysisNode.from_dict(dct)
-        elif resource_type == "seed":
-            return SeedNode.from_dict(dct)
-        elif resource_type == "rpc":
-            return RPCNode.from_dict(dct)
-        elif resource_type == "sql":
-            return SqlNode.from_dict(dct)
-        elif resource_type == "test":
-            if "test_metadata" in dct:
-                return GenericTestNode.from_dict(dct)
-            else:
-                return SingularTestNode.from_dict(dct)
+        elif resource_type == "model":
+            return ModelNode.from_dict(dct)
         elif resource_type == "operation":
             return HookNode.from_dict(dct)
+        elif resource_type == "rpc":
+            return RPCNode.from_dict(dct)
         elif resource_type == "seed":
             return SeedNode.from_dict(dct)
         elif resource_type == "snapshot":
             return SnapshotNode.from_dict(dct)
+        elif resource_type == "sql":
+            return SqlNode.from_dict(dct)
+        elif resource_type == "test":
+            return (
+                GenericTestNode.from_dict(dct)
+                if "test_metadata" in dct
+                else SingularTestNode.from_dict(dct)
+            )
         else:
             return cls.from_dict(dct)
 
@@ -580,9 +571,7 @@ class ModelNode(CompiledNode):
         unique_id = args.unique_id
 
         # build unrendered config -- for usage in ParsedNode.same_contents
-        unrendered_config = {}
-        unrendered_config["alias"] = args.identifier
-        unrendered_config["schema"] = args.schema
+        unrendered_config = {"alias": args.identifier, "schema": args.schema}
         if args.database:
             unrendered_config["database"] = args.database
 
@@ -618,10 +607,7 @@ class ModelNode(CompiledNode):
 
     @property
     def search_name(self):
-        if self.version is None:
-            return self.name
-        else:
-            return f"{self.name}.v{self.version}"
+        return self.name if self.version is None else f"{self.name}.v{self.version}"
 
     @property
     def materialization_enforces_constraints(self) -> bool:
@@ -664,13 +650,13 @@ class ModelNode(CompiledNode):
             self.contract.checksum = hashlib.new("sha256", data).hexdigest()
 
     def same_contract(self, old, adapter_type=None) -> bool:
-        # If the contract wasn't previously enforced:
-        if old.contract.enforced is False and self.contract.enforced is False:
-            # No change -- same_contract: True
-            return True
-        if old.contract.enforced is False and self.contract.enforced is True:
-            # Now it's enforced. This is a change, but not a breaking change -- same_contract: False
-            return False
+        if old.contract.enforced is False:
+            if self.contract.enforced is False:
+                # No change -- same_contract: True
+                return True
+            if self.contract.enforced is True:
+                # Now it's enforced. This is a change, but not a breaking change -- same_contract: False
+                return False
 
         # Otherwise: The contract was previously enforced, and we need to check for changes.
         # Happy path: The contract is still being enforced, and the checksums are identical.
@@ -678,10 +664,6 @@ class ModelNode(CompiledNode):
             # No change -- same_contract: True
             return True
 
-        # Otherwise: There has been a change.
-        # We need to determine if it is a **breaking** change.
-        # These are the categories of breaking changes:
-        contract_enforced_disabled: bool = False
         columns_removed: List[str] = []
         column_type_changes: List[Dict[str, str]] = []
         enforced_column_constraint_removed: List[
@@ -690,10 +672,9 @@ class ModelNode(CompiledNode):
         enforced_model_constraint_removed: List[Dict[str, Any]] = []  # constraint_type, columns
         materialization_changed: List[str] = []
 
-        if old.contract.enforced is True and self.contract.enforced is False:
-            # Breaking change: the contract was previously enforced, and it no longer is
-            contract_enforced_disabled = True
-
+        contract_enforced_disabled = (
+            old.contract.enforced is True and self.contract.enforced is False
+        )
         # TODO: this avoid the circular imports but isn't ideal
         from dbt.adapters.factory import get_adapter_constraint_support
         from dbt.adapters.base import ConstraintSupport
@@ -728,34 +709,34 @@ class ModelNode(CompiledNode):
                 and old_value.constraints != self.columns[old_key].constraints
                 and old.materialization_enforces_constraints
             ):
-                for old_constraint in old_value.constraints:
+                enforced_column_constraint_removed.extend(
+                    {
+                        "column_name": old_key,
+                        "constraint_name": old_constraint.name,
+                        "constraint_type": ConstraintType(old_constraint.type),
+                    }
+                    for old_constraint in old_value.constraints
                     if (
                         old_constraint not in self.columns[old_key].constraints
-                        and constraint_support[old_constraint.type] == ConstraintSupport.ENFORCED
-                    ):
-                        enforced_column_constraint_removed.append(
-                            {
-                                "column_name": old_key,
-                                "constraint_name": old_constraint.name,
-                                "constraint_type": ConstraintType(old_constraint.type),
-                            }
-                        )
-
+                        and constraint_support[old_constraint.type]
+                        == ConstraintSupport.ENFORCED
+                    )
+                )
         # Now compare the model level constraints
         if old.constraints != self.constraints and old.materialization_enforces_constraints:
-            for old_constraint in old.constraints:
+            enforced_model_constraint_removed.extend(
+                {
+                    "constraint_name": old_constraint.name,
+                    "constraint_type": ConstraintType(old_constraint.type),
+                    "columns": old_constraint.columns,
+                }
+                for old_constraint in old.constraints
                 if (
                     old_constraint not in self.constraints
-                    and constraint_support[old_constraint.type] == ConstraintSupport.ENFORCED
-                ):
-                    enforced_model_constraint_removed.append(
-                        {
-                            "constraint_name": old_constraint.name,
-                            "constraint_type": ConstraintType(old_constraint.type),
-                            "columns": old_constraint.columns,
-                        }
-                    )
-
+                    and constraint_support[old_constraint.type]
+                    == ConstraintSupport.ENFORCED
+                )
+            )
         # Check for relevant materialization changes.
         if (
             old.materialization_enforces_constraints
@@ -895,21 +876,11 @@ class SeedNode(ParsedNode):  # No SQLDefaults!
                     SeedExceedsLimitSamePath(package_name=self.package_name, name=self.name),
                     node=self,
                 )
-            elif not result:
+            else:
                 warn_or_error(
                     SeedExceedsLimitAndPathChanged(package_name=self.package_name, name=self.name),
                     node=self,
                 )
-            else:
-                warn_or_error(
-                    SeedExceedsLimitChecksumChanged(
-                        package_name=self.package_name,
-                        name=self.name,
-                        checksum_name=other.checksum.name,
-                    ),
-                    node=self,
-                )
-
         return result
 
     @property
@@ -988,9 +959,7 @@ class TestShouldStoreFailures:
 
     @property
     def is_relational(self):
-        if self.should_store_failures:
-            return True
-        return False
+        return bool(self.should_store_failures)
 
 
 @dataclass
@@ -1094,11 +1063,7 @@ class Macro(BaseNode):
     supported_languages: Optional[List[ModelLanguage]] = None
 
     def same_contents(self, other: Optional["Macro"]) -> bool:
-        if other is None:
-            return False
-        # the only thing that makes one macro different from another with the
-        # same name/package is its content
-        return self.macro_sql == other.macro_sql
+        return False if other is None else self.macro_sql == other.macro_sql
 
     @property
     def depends_on_macros(self):
@@ -1120,11 +1085,7 @@ class Documentation(BaseNode):
         return self.name
 
     def same_contents(self, other: Optional["Documentation"]) -> bool:
-        if other is None:
-            return False
-        # the only thing that makes one doc different from another with the
-        # same name/package is its content
-        return self.block_contents == other.block_contents
+        return False if other is None else self.block_contents == other.block_contents
 
 
 # ====================================
@@ -1133,10 +1094,7 @@ class Documentation(BaseNode):
 
 
 def normalize_test(testdef: TestDef) -> Dict[str, Any]:
-    if isinstance(testdef, str):
-        return {testdef: {}}
-    else:
-        return testdef
+    return {testdef: {}} if isinstance(testdef, str) else testdef
 
 
 @dataclass
@@ -1177,10 +1135,7 @@ class UnpatchedSourceDefinition(BaseNode):
 
     @property
     def tests(self) -> List[TestDef]:
-        if self.table.tests is None:
-            return []
-        else:
-            return self.table.tests
+        return [] if self.table.tests is None else self.table.tests
 
 
 @dataclass
@@ -1596,25 +1551,21 @@ class SemanticModel(GraphNode):
 
     @property
     def has_validity_dimensions(self) -> bool:
-        return any([dim.validity_params is not None for dim in self.dimensions])
+        return any(dim.validity_params is not None for dim in self.dimensions)
 
     @property
     def validity_start_dimension(self) -> Optional[Dimension]:
         validity_start_dims = [
             dim for dim in self.dimensions if dim.validity_params and dim.validity_params.is_start
         ]
-        if not validity_start_dims:
-            return None
-        return validity_start_dims[0]
+        return None if not validity_start_dims else validity_start_dims[0]
 
     @property
     def validity_end_dimension(self) -> Optional[Dimension]:
         validity_end_dims = [
             dim for dim in self.dimensions if dim.validity_params and dim.validity_params.is_end
         ]
-        if not validity_end_dims:
-            return None
-        return validity_end_dims[0]
+        return None if not validity_end_dims else validity_end_dims[0]
 
     @property
     def partitions(self) -> List[Dimension]:  # noqa: D
@@ -1623,9 +1574,7 @@ class SemanticModel(GraphNode):
     @property
     def partition(self) -> Optional[Dimension]:
         partitions = self.partitions
-        if not partitions:
-            return None
-        return partitions[0]
+        return None if not partitions else partitions[0]
 
     @property
     def reference(self) -> SemanticModelReference:
