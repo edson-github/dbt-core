@@ -20,7 +20,7 @@ class Integer(agate.data_types.DataType):
         if type(d) == int or d is None:
             return d
         else:
-            raise agate.exceptions.CastError('Can not parse value "%s" as Integer.' % d)
+            raise agate.exceptions.CastError(f'Can not parse value "{d}" as Integer.')
 
     def jsonify(self, d):
         return d
@@ -53,7 +53,7 @@ class ISODateTime(agate.data_types.DateTime):
         except:  # noqa
             pass
 
-        raise agate.exceptions.CastError('Can not parse value "%s" as datetime.' % d)
+        raise agate.exceptions.CastError(f'Can not parse value "{d}" as datetime.')
 
 
 def build_type_tester(
@@ -96,16 +96,10 @@ def table_from_rows(
 def table_from_data(data, column_names: Iterable[str]) -> agate.Table:
     "Convert a list of dictionaries into an Agate table"
 
-    # The agate table is generated from a list of dicts, so the column order
-    # from `data` is not preserved. We can use `select` to reorder the columns
-    #
-    # If there is no data, create an empty table with the specified columns
-
     if len(data) == 0:
         return agate.Table([], column_names=column_names)
-    else:
-        table = agate.Table.from_object(data, column_types=DEFAULT_TYPE_TESTER)
-        return table.select(column_names)
+    table = agate.Table.from_object(data, column_types=DEFAULT_TYPE_TESTER)
+    return table.select(column_names)
 
 
 def table_from_data_flat(data, column_names: Iterable[str]) -> agate.Table:
@@ -195,14 +189,10 @@ class ColumnTypeBuilder(Dict[str, NullableAgateType]):
             )
 
     def finalize(self) -> Dict[str, agate.data_types.DataType]:
-        result: Dict[str, agate.data_types.DataType] = {}
-        for key, value in self.items():
-            if isinstance(value, _NullMarker):
-                # agate would make it a Number but we'll make it Integer so that if this column
-                # gets merged with another Integer column, it won't get forced to a Number
-                result[key] = Integer()
-            else:
-                result[key] = value
+        result: Dict[str, agate.data_types.DataType] = {
+            key: Integer() if isinstance(value, _NullMarker) else value
+            for key, value in self.items()
+        }
         return result
 
 

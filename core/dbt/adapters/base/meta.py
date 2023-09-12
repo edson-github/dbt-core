@@ -112,7 +112,7 @@ class AdapterMeta(abc.ABCMeta):
         # collect base class data first
         for base in bases:
             available.update(getattr(base, "_available_", set()))
-            replacements.update(getattr(base, "_parse_replacements_", set()))
+            replacements |= getattr(base, "_parse_replacements_", set())
 
         # override with local data if it exists
         for name, value in namespace.items():

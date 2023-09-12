@@ -100,8 +100,7 @@ class AdditionalPropertiesMixin:
             else:
                 new_dict[key] = value
         data = new_dict
-        data = super().__pre_deserialize__(data)
-        return data
+        return super().__pre_deserialize__(data)
 
     def __post_serialize__(self, dct):
         data = super().__post_serialize__(dct)
@@ -206,8 +205,10 @@ class VersionedSchema(dbtClassMixin):
     def is_compatible_version(cls, schema_version):
         compatible_versions = [str(cls.dbt_schema_version)]
         if hasattr(cls, "compatible_previous_versions"):
-            for name, version in cls.compatible_previous_versions():
-                compatible_versions.append(str(SchemaVersion(name, version)))
+            compatible_versions.extend(
+                str(SchemaVersion(name, version))
+                for name, version in cls.compatible_previous_versions()
+            )
         return str(schema_version) in compatible_versions
 
     @classmethod

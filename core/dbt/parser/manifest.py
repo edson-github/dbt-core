@@ -139,12 +139,9 @@ def extended_mashumaro_encoder(data):
 
 def extended_msgpack_encoder(obj):
     if type(obj) is datetime.date:
-        date_bytes = msgpack.ExtType(1, obj.isoformat().encode())
-        return date_bytes
+        return msgpack.ExtType(1, obj.isoformat().encode())
     elif type(obj) is datetime.datetime:
-        datetime_bytes = msgpack.ExtType(2, obj.isoformat().encode())
-        return datetime_bytes
-
+        return msgpack.ExtType(2, obj.isoformat().encode())
     return obj
 
 
@@ -154,11 +151,9 @@ def extended_mashumuro_decoder(data):
 
 def extended_msgpack_decoder(code, data):
     if code == 1:
-        d = datetime.date.fromisoformat(data.decode())
-        return d
+        return datetime.date.fromisoformat(data.decode())
     elif code == 2:
-        dt = datetime.datetime.fromisoformat(data.decode())
-        return dt
+        return datetime.datetime.fromisoformat(data.decode())
     else:
         return msgpack.ExtType(code, data)
 
@@ -248,11 +243,7 @@ class ManifestLoader:
         # later after we set the MacroManifest in the adapter. It sets
         # up the query headers.
         self.macro_hook: Callable[[Manifest], Any]
-        if macro_hook is None:
-            self.macro_hook = lambda m: None
-        else:
-            self.macro_hook = macro_hook
-
+        self.macro_hook = (lambda m: None) if macro_hook is None else macro_hook
         self._perf_info = self.build_perf_info()
 
         # State check determines whether the saved_manifest and the current
@@ -407,8 +398,7 @@ class ManifestLoader:
 
                     # get file info for local logs
                     parse_file_type: str = ""
-                    file_id = self.partial_parser.processing_file
-                    if file_id:
+                    if file_id := self.partial_parser.processing_file:
                         source_file = None
                         if file_id in self.saved_manifest.files:
                             source_file = self.saved_manifest.files[file_id]
@@ -691,8 +681,9 @@ class ManifestLoader:
         if not self.partially_parsing and HookParser in parser_types:
             hook_parser = HookParser(project, self.manifest, self.root_project)
             path = hook_parser.get_path()
-            file = load_source_file(path, ParseFileType.Hook, project.project_name, {})
-            if file:
+            if file := load_source_file(
+                path, ParseFileType.Hook, project.project_name, {}
+            ):
                 file_block = FileBlock(file)
                 hook_parser.parse_file(file_block)
 
@@ -734,8 +725,9 @@ class ManifestLoader:
                 package_name = macro.package_name
                 if "." in macro_name:
                     package_name, macro_name = macro_name.split(".")
-                dep_macro_id = self.macro_resolver.get_macro_id(package_name, macro_name)
-                if dep_macro_id:
+                if dep_macro_id := self.macro_resolver.get_macro_id(
+                    package_name, macro_name
+                ):
                     macro.depends_on.add_macro(dep_macro_id)  # will check for dupes
 
     def write_manifest_for_partial_parse(self):
@@ -956,20 +948,16 @@ class ManifestLoader:
             )
         )
 
-        # Create a FileHash of the env_vars in the project
-        key_list = list(config.project_env_vars.keys())
-        key_list.sort()
-        env_var_str = ""
-        for key in key_list:
-            env_var_str += f"{key}:{config.project_env_vars[key]}|"
+        key_list = sorted(config.project_env_vars.keys())
+        env_var_str = "".join(
+            f"{key}:{config.project_env_vars[key]}|" for key in key_list
+        )
         project_env_vars_hash = FileHash.from_contents(env_var_str)
 
-        # Create a FileHash of the env_vars in the project
-        key_list = list(config.profile_env_vars.keys())
-        key_list.sort()
-        env_var_str = ""
-        for key in key_list:
-            env_var_str += f"{key}:{config.profile_env_vars[key]}|"
+        key_list = sorted(config.profile_env_vars.keys())
+        env_var_str = "".join(
+            f"{key}:{config.profile_env_vars[key]}|" for key in key_list
+        )
         profile_env_vars_hash = FileHash.from_contents(env_var_str)
 
         # Create a FileHash of the profile file
@@ -984,15 +972,13 @@ class ManifestLoader:
             with open(path) as fp:
                 project_hashes[name] = FileHash.from_contents(fp.read())
 
-        # Create the ManifestStateCheck object
-        state_check = ManifestStateCheck(
+        return ManifestStateCheck(
             project_env_vars_hash=project_env_vars_hash,
             profile_env_vars_hash=profile_env_vars_hash,
             vars_hash=vars_hash,
             profile_hash=profile_hash,
             project_hashes=project_hashes,
         )
-        return state_check
 
     def save_macros_to_adapter(self, adapter):
         macro_manifest = MacroManifest(self.manifest.macros)
@@ -1014,8 +1000,7 @@ class ManifestLoader:
                 # This does not add the file to the manifest.files,
                 # but that shouldn't be necessary here.
                 macro_parser.parse_file(block)
-        macro_manifest = MacroManifest(self.manifest.macros)
-        return macro_manifest
+        return MacroManifest(self.manifest.macros)
 
     # This is called by the adapter code only, to create the
     # MacroManifest that's stored in the adapter.
@@ -1267,31 +1252,7 @@ def invalid_target_fail_unless_test(
     disabled: Optional[bool] = None,
     should_warn_if_disabled: bool = True,
 ):
-    if node.resource_type == NodeType.Test:
-        if disabled:
-            event = InvalidDisabledTargetInTestNode(
-                resource_type_title=node.resource_type.title(),
-                unique_id=node.unique_id,
-                original_file_path=node.original_file_path,
-                target_kind=target_kind,
-                target_name=target_name,
-                target_package=target_package if target_package else "",
-            )
-
-            fire_event(event, EventLevel.WARN if should_warn_if_disabled else None)
-        else:
-            warn_or_error(
-                NodeNotFoundOrDisabled(
-                    original_file_path=node.original_file_path,
-                    unique_id=node.unique_id,
-                    resource_type_title=node.resource_type.title(),
-                    target_name=target_name,
-                    target_kind=target_kind,
-                    target_package=target_package if target_package else "",
-                    disabled=str(disabled),
-                )
-            )
-    else:
+    if node.resource_type != NodeType.Test:
         raise TargetNotFoundError(
             node=node,
             target_name=target_name,
@@ -1299,6 +1260,29 @@ def invalid_target_fail_unless_test(
             target_package=target_package,
             target_version=target_version,
             disabled=disabled,
+        )
+    if disabled:
+        event = InvalidDisabledTargetInTestNode(
+            resource_type_title=node.resource_type.title(),
+            unique_id=node.unique_id,
+            original_file_path=node.original_file_path,
+            target_kind=target_kind,
+            target_name=target_name,
+            target_package=target_package if target_package else "",
+        )
+
+        fire_event(event, EventLevel.WARN if should_warn_if_disabled else None)
+    else:
+        warn_or_error(
+            NodeNotFoundOrDisabled(
+                original_file_path=node.original_file_path,
+                unique_id=node.unique_id,
+                resource_type_title=node.resource_type.title(),
+                target_name=target_name,
+                target_kind=target_kind,
+                target_package=target_package if target_package else "",
+                disabled=str(disabled),
+            )
         )
 
 
@@ -1336,8 +1320,9 @@ def _check_resource_uniqueness(
     for ver_unver_dict in name_resources.values():
         versioned_names = ver_unver_dict["ver"].keys()
         unversioned_names = ver_unver_dict["unver"].keys()
-        intersection_versioned = set(versioned_names).intersection(set(unversioned_names))
-        if intersection_versioned:
+        if intersection_versioned := set(versioned_names).intersection(
+            set(unversioned_names)
+        ):
             for name in intersection_versioned:
                 versioned_node = ver_unver_dict["ver"][name]
                 unversioned_node = ver_unver_dict["unver"][name]

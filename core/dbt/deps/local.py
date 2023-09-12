@@ -33,7 +33,7 @@ class LocalPinnedPackage(LocalPackageMixin, PinnedPackage):
         return None
 
     def nice_version_name(self):
-        return "<local @ {}>".format(self.local)
+        return f"<local @ {self.local}>"
 
     def resolve_path(self, project):
         return system.resolve_path_from_base(

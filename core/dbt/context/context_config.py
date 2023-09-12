@@ -51,10 +51,7 @@ class UnrenderedConfig(ConfigSource):
             model_configs = unrendered.get("exposures")
         else:
             model_configs = unrendered.get("models")
-        if model_configs is None:
-            return {}
-        else:
-            return model_configs
+        return {} if model_configs is None else model_configs
 
 
 class RenderedConfig(ConfigSource):
@@ -63,22 +60,21 @@ class RenderedConfig(ConfigSource):
 
     def get_config_dict(self, resource_type: NodeType) -> Dict[str, Any]:
         if resource_type == NodeType.Seed:
-            model_configs = self.project.seeds
+            return self.project.seeds
         elif resource_type == NodeType.Snapshot:
-            model_configs = self.project.snapshots
+            return self.project.snapshots
         elif resource_type == NodeType.Source:
-            model_configs = self.project.sources
+            return self.project.sources
         elif resource_type == NodeType.Test:
-            model_configs = self.project.tests
+            return self.project.tests
         elif resource_type == NodeType.Metric:
-            model_configs = self.project.metrics
+            return self.project.metrics
         elif resource_type == NodeType.SemanticModel:
-            model_configs = self.project.semantic_models
+            return self.project.semantic_models
         elif resource_type == NodeType.Exposure:
-            model_configs = self.project.exposures
+            return self.project.exposures
         else:
-            model_configs = self.project.models
-        return model_configs
+            return self.project.models
 
 
 class BaseContextConfigGenerator(Generic[T]):
@@ -185,19 +181,14 @@ class ContextConfigGenerator(BaseContextConfigGenerator[C]):
     def initial_result(self, resource_type: NodeType, base: bool) -> C:
         # defaults, own_config, config calls, active_config (if != own_config)
         config_cls = get_config_for(resource_type, base=base)
-        # Calculate the defaults. We don't want to validate the defaults,
-        # because it might be invalid in the case of required config members
-        # (such as on snapshots!)
-        result = config_cls.from_dict({})
-        return result
+        return config_cls.from_dict({})
 
     def _update_from_config(self, result: C, partial: Dict[str, Any], validate: bool = False) -> C:
         translated = self._active_project.credentials.translate_aliases(partial)
         translated = self.translate_hook_names(translated)
-        updated = result.update_from(
+        return result.update_from(
             translated, self._active_project.credentials.type, validate=validate
         )
-        return updated
 
     def translate_hook_names(self, project_dict):
         # This is a kind of kludge because the fix for #6411 specifically allowed misspelling
@@ -263,7 +254,7 @@ class UnrenderedConfigGenerator(BaseContextConfigGenerator[Dict[str, Any]]):
         validate: bool = False,
     ) -> Dict[str, Any]:
         translated = self._active_project.credentials.translate_aliases(partial)
-        result.update(translated)
+        result |= translated
         return result
 
 

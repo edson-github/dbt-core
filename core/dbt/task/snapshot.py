@@ -12,7 +12,7 @@ from dbt.utils import cast_dict_to_dict_of_strings
 
 class SnapshotRunner(ModelRunner):
     def describe_node(self):
-        return "snapshot {}".format(self.get_node_representation())
+        return f"snapshot {self.get_node_representation()}"
 
     def print_result_line(self, result):
         model = result.node

@@ -113,7 +113,7 @@ class PluginManager:
         all_plugin_artifacts = {}
         for hook_method in self.hooks.get("get_manifest_artifacts", []):
             plugin_artifacts = hook_method(manifest)
-            all_plugin_artifacts.update(plugin_artifacts)
+            all_plugin_artifacts |= plugin_artifacts
         return all_plugin_artifacts
 
     def get_nodes(self) -> PluginNodes:

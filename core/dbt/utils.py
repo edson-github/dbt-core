@@ -58,16 +58,12 @@ class ExitCodes(int, Enum):
 
 
 def coalesce(*args):
-    for arg in args:
-        if arg is not None:
-            return arg
-    return None
+    return next((arg for arg in args if arg is not None), None)
 
 
 def get_profile_from_project(project):
     target_name = project.get("target", {})
-    profile = project.get("outputs", {}).get(target_name, {})
-    return profile
+    return project.get("outputs", {}).get(target_name, {})
 
 
 def get_model_name_or_none(model):
@@ -124,7 +120,7 @@ def split_path(path):
 
 
 def merge(*args):
-    if len(args) == 0:
+    if not args:
         return None
 
     if len(args) == 1:
@@ -148,7 +144,7 @@ def deep_merge(*args):
     >>> dbt.utils.deep_merge({'a': 1, 'b': 2, 'c': 3}, {'a': 2}, {'a': 3, 'b': 1})  # noqa
     {'a': 3, 'b': 1, 'c': 3}
     """
-    if len(args) == 0:
+    if not args:
         return None
 
     if len(args) == 1:
@@ -171,7 +167,7 @@ def deep_merge_item(destination, key, value):
     if isinstance(value, dict):
         node = destination.setdefault(key, {})
         destination[key] = deep_merge(node, value)
-    elif isinstance(value, tuple) or isinstance(value, list):
+    elif isinstance(value, (tuple, list)):
         if key in destination:
             destination[key] = list(value) + list(destination[key])
         else:
@@ -243,13 +239,13 @@ def get_pseudo_test_path(node_name, source_path):
     "schema tests all come from schema.yml files. fake a source sql file"
     source_path_parts = split_path(source_path)
     source_path_parts.pop()  # ignore filename
-    suffix = ["{}.sql".format(node_name)]
+    suffix = [f"{node_name}.sql"]
     pseudo_path_parts = source_path_parts + suffix
     return os.path.join(*pseudo_path_parts)
 
 
 def get_pseudo_hook_path(hook_name):
-    path_parts = ["hooks", "{}.sql".format(hook_name)]
+    path_parts = ["hooks", f"{hook_name}.sql"]
     return os.path.join(*path_parts)
 
 
@@ -312,13 +308,13 @@ def filter_null_values(input: Dict[K_T, Optional[V_T]]) -> Dict[K_T, V_T]:
 
 
 def add_ephemeral_model_prefix(s: str) -> str:
-    return "__dbt__cte__{}".format(s)
+    return f"__dbt__cte__{s}"
 
 
 def timestring() -> str:
     """Get the current datetime as an RFC 3339-compliant string"""
     # isoformat doesn't include the mandatory trailing 'Z' for UTC.
-    return datetime.datetime.utcnow().isoformat() + "Z"
+    return f"{datetime.datetime.utcnow().isoformat()}Z"
 
 
 def humanize_execution_time(execution_time: int) -> str:
@@ -434,16 +430,11 @@ def coerce_dict_str(value: Any) -> Optional[Dict[str, Any]]:
 
 
 def _coerce_decimal(value):
-    if isinstance(value, DECIMALS):
-        return float(value)
-    return value
+    return float(value) if isinstance(value, DECIMALS) else value
 
 
 def lowercase(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return None
-    else:
-        return value.lower()
+    return None if value is None else value.lower()
 
 
 # some types need to make constants available to the jinja context as
@@ -553,10 +544,7 @@ class MultiDict(Mapping[str, Any]):
         super().__init__()
         self.sources: StringMapList
 
-        if sources is None:
-            self.sources = []
-        else:
-            self.sources = sources
+        self.sources = [] if sources is None else sources
 
     def add_from(self, sources: StringMapIter):
         self.sources.extend(sources)
@@ -605,15 +593,14 @@ def _connection_exception_retry(fn, max_attempts: int, attempt: int = 0):
         ReadError,
         EOFError,
     ) as exc:
-        if attempt <= max_attempts - 1:
-            dbt.events.functions.fire_event(RecordRetryException(exc=str(exc)))
-            dbt.events.functions.fire_event(RetryExternalCall(attempt=attempt, max=max_attempts))
-            time.sleep(1)
-            return _connection_exception_retry(fn, max_attempts, attempt + 1)
-        else:
+        if attempt > max_attempts - 1:
             raise dbt.exceptions.ConnectionError(
-                "External connection exception occurred: " + str(exc)
+                f"External connection exception occurred: {str(exc)}"
             )
+        dbt.events.functions.fire_event(RecordRetryException(exc=str(exc)))
+        dbt.events.functions.fire_event(RetryExternalCall(attempt=attempt, max=max_attempts))
+        time.sleep(1)
+        return _connection_exception_retry(fn, max_attempts, attempt + 1)
 
 
 # This is used to serialize the args in the run_results and in the logs.
@@ -627,7 +614,7 @@ def args_to_dict(args):
     # update the args with the flags, which could also come from environment
     # variables or user_config
     flag_dict = flags.get_flag_dict()
-    var_args.update(flag_dict)
+    var_args |= flag_dict
     dict_args = {}
     # remove args keys that clutter up the dictionary
     for key in var_args:
@@ -655,7 +642,7 @@ def args_to_dict(args):
         if key in default_empty_yaml_dict_keys and var_args[key] == "{}":
             continue
         # this was required for a test case
-        if isinstance(var_args[key], PosixPath) or isinstance(var_args[key], WindowsPath):
+        if isinstance(var_args[key], (PosixPath, WindowsPath)):
             var_args[key] = str(var_args[key])
         if isinstance(var_args[key], WarnErrorOptions):
             var_args[key] = var_args[key].to_dict()
@@ -668,21 +655,12 @@ def args_to_dict(args):
 # the default for protobuf for strings is the empty string, so
 # Optional[str] types don't work for generated Python classes.
 def cast_to_str(string: Optional[str]) -> str:
-    if string is None:
-        return ""
-    else:
-        return string
+    return "" if string is None else string
 
 
 def cast_to_int(integer: Optional[int]) -> int:
-    if integer is None:
-        return 0
-    else:
-        return integer
+    return 0 if integer is None else integer
 
 
 def cast_dict_to_dict_of_strings(dct):
-    new_dct = {}
-    for k, v in dct.items():
-        new_dct[str(k)] = str(v)
-    return new_dct
+    return {str(k): str(v) for k, v in dct.items()}

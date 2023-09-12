@@ -199,8 +199,8 @@ class SQLAdapter(BaseAdapter):
         return relations
 
     @classmethod
-    def quote(self, identifier):
-        return '"{}"'.format(identifier)
+    def quote(cls, identifier):
+        return f'"{identifier}"'
 
     def list_schemas(self, database: str) -> List[str]:
         results = self.execute_macro(LIST_SCHEMAS_MACRO_NAME, kwargs={"database": database})

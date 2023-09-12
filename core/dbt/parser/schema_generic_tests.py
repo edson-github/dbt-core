@@ -169,9 +169,7 @@ class SchemaGenericTestParser(SimpleParser):
 
         except ParsingError as exc:
             context = trimmed(str(target))
-            msg = "Invalid test config given in {}:\n\t{}\n\t@: {}".format(
-                target.original_file_path, exc.msg, context
-            )
+            msg = f"Invalid test config given in {target.original_file_path}:\n\t{exc.msg}\n\t@: {context}"
             raise ParsingError(msg) from exc
 
         except CompilationError as exc:
@@ -232,17 +230,14 @@ class SchemaGenericTestParser(SimpleParser):
         """Look up attached node for Testable target nodes other than sources. Can be None if generic test attached to SQL node with no corresponding .sql file."""
         attached_node = None  # type: Optional[Union[ManifestNode, GraphMemberNode]]
         if not isinstance(target, UnpatchedSourceDefinition):
-            attached_node_unique_id = self.manifest.ref_lookup.get_unique_id(
+            if attached_node_unique_id := self.manifest.ref_lookup.get_unique_id(
                 target.name, target.package_name, version
-            )
-            if attached_node_unique_id:
+            ):
                 attached_node = self.manifest.nodes[attached_node_unique_id]
-            else:
-                disabled_node = self.manifest.disabled_lookup.find(
-                    target.name, None
-                ) or self.manifest.disabled_lookup.find(target.name.upper(), None)
-                if disabled_node:
-                    attached_node = self.manifest.disabled[disabled_node[0].unique_id][0]
+            elif disabled_node := self.manifest.disabled_lookup.find(
+                target.name, None
+            ) or self.manifest.disabled_lookup.find(target.name.upper(), None):
+                attached_node = self.manifest.disabled[disabled_node[0].unique_id][0]
         return attached_node
 
     def store_env_vars(self, target, schema_file_id, env_vars):
@@ -269,7 +264,7 @@ class SchemaGenericTestParser(SimpleParser):
     # parsing to avoid jinja overhead.
     def render_test_update(self, node, config, builder, schema_file_id):
         macro_unique_id = self.macro_resolver.get_macro_id(
-            node.package_name, "test_" + builder.name
+            node.package_name, f"test_{builder.name}"
         )
         # Add the depends_on here so we can limit the macros added
         # to the context in rendering processing
@@ -307,10 +302,9 @@ class SchemaGenericTestParser(SimpleParser):
                 # we got a ValidationError - probably bad types in config()
                 raise SchemaConfigError(exc, node=node) from exc
 
-        # Set attached_node for generic test nodes, if available.
-        # Generic test node inherits attached node's group config value.
-        attached_node = self._lookup_attached_node(builder.target, builder.version)
-        if attached_node:
+        if attached_node := self._lookup_attached_node(
+            builder.target, builder.version
+        ):
             node.attached_node = attached_node.unique_id
             node.group, node.group = attached_node.group, attached_node.group
 

@@ -70,11 +70,7 @@ class Catalog(Dict[CatalogKey, CatalogTable]):
 
     def get_table(self, data: PrimitiveDict) -> CatalogTable:
         database = data.get("table_database")
-        if database is None:
-            dkey: Optional[str] = None
-        else:
-            dkey = str(database)
-
+        dkey = None if database is None else str(database)
         try:
             key = CatalogKey(
                 dkey,
@@ -83,7 +79,7 @@ class Catalog(Dict[CatalogKey, CatalogTable]):
             )
         except KeyError as exc:
             raise dbt.exceptions.CompilationError(
-                "Catalog information missing required key {} (got {})".format(exc, data)
+                f"Catalog information missing required key {exc} (got {data})"
             )
         table: CatalogTable
         if key in self:
@@ -154,7 +150,7 @@ def format_stats(stats: PrimitiveDict) -> StatsDict:
     for key in base_keys:
         dct: PrimitiveDict = {"id": key}
         for subkey in ("label", "value", "description", "include"):
-            dct[subkey] = stats["{}:{}".format(key, subkey)]
+            dct[subkey] = stats[f"{key}:{subkey}"]
 
         try:
             stats_item = StatsItem.from_dict(dct)
@@ -246,10 +242,7 @@ class GenerateTask(CompileTask):
 
         catalog = Catalog(catalog_data)
 
-        errors: Optional[List[str]] = None
-        if exceptions:
-            errors = [str(e) for e in exceptions]
-
+        errors = [str(e) for e in exceptions] if exceptions else None
         nodes, sources = catalog.make_unique_id_map(self.manifest)
         results = self.get_catalog_results(
             nodes=nodes,
@@ -286,7 +279,7 @@ class GenerateTask(CompileTask):
         )
 
     @classmethod
-    def interpret_results(self, results: Optional[CatalogResults]) -> bool:
+    def interpret_results(cls, results: Optional[CatalogResults]) -> bool:
         if results is None:
             return False
         if results.errors:

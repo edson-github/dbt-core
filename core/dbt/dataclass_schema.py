@@ -77,8 +77,7 @@ class dbtClassMixin(DataClassDictMixin):
     @functools.lru_cache
     def json_schema(cls):
         json_schema_obj = build_json_schema(cls)
-        json_schema = json_schema_obj.to_dict()
-        return json_schema
+        return json_schema_obj.to_dict()
 
     @classmethod
     def validate(cls, data):
@@ -145,8 +144,8 @@ class StrEnum(str, SerializableType, Enum):
         return self.value
 
     # https://docs.python.org/3.6/library/enum.html#using-automatic-values
-    def _generate_next_value_(name, *_):
-        return name
+    def _generate_next_value_(self, *_):
+        return self
 
     def _serialize(self) -> str:
         return self.value

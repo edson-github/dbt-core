@@ -72,7 +72,7 @@ class BaseMergeExcludeColumns:
 
         relation = incremental_model
         # update seed in anticipation of incremental model update
-        row_count_query = "select * from {}.{}".format(project.test_schema, seed)
+        row_count_query = f"select * from {project.test_schema}.{seed}"
 
         seed_rows = len(project.run_sql(row_count_query, fetch="all"))
 

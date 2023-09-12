@@ -31,15 +31,13 @@ def get_counts(flat_nodes) -> str:
         t = node.resource_type
 
         if node.resource_type == NodeType.Model:
-            t = "{} {}".format(node.get_materialization(), t)
+            t = f"{node.get_materialization()} {t}"
         elif node.resource_type == NodeType.Operation:
             t = "hook"
 
         counts[t] = counts.get(t, 0) + 1
 
-    stat_line = ", ".join([pluralize(v, k) for k, v in counts.items()])
-
-    return stat_line
+    return ", ".join([pluralize(v, k) for k, v in counts.items()])
 
 
 def interpret_run_result(result) -> str:

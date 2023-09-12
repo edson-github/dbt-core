@@ -47,9 +47,7 @@ class HookSearcher(Iterable[HookBlock]):
             hooks = self.project.on_run_end
         else:
             raise DbtInternalError(
-                'hook_type must be one of "{}" or "{}" (got {})'.format(
-                    RunHookType.Start, RunHookType.End, self.hook_type
-                )
+                f'hook_type must be one of "{RunHookType.Start}" or "{RunHookType.End}" (got {self.hook_type})'
             )
         return self._hook_list(hooks)
 
@@ -71,15 +69,12 @@ class HookParser(SimpleParser[HookBlock, HookNode]):
 
     # Hooks are only in the dbt_project.yml file for the project
     def get_path(self) -> FilePath:
-        # There ought to be an existing file object for this, but
-        # until that is implemented use a dummy modification time
-        path = FilePath(
+        return FilePath(
             project_root=self.project.project_root,
             searched_path=".",
             relative_path="dbt_project.yml",
             modification_time=0.0,
         )
-        return path
 
     def parse_from_dict(self, dct, validate=True) -> HookNode:
         if validate:

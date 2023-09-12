@@ -34,8 +34,7 @@ class BaseGrants:
     def get_test_users(self, project):
         test_users = []
         for env_var in TEST_USER_ENV_VARS:
-            user_name = os.getenv(env_var)
-            if user_name:
+            if user_name := os.getenv(env_var):
                 test_users.append(user_name)
         return test_users
 

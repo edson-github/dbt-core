@@ -116,15 +116,20 @@ class GraphRunnableTask(ConfiguredTask):
 
         if self.args.selector:
             # use pre-defined selector (--selector)
-            spec = self.config.get_selector(self.args.selector)
-        elif not (self.selection_arg or self.exclusion_arg) and default_selector_name:
+            return self.config.get_selector(self.args.selector)
+        elif (
+            not self.selection_arg
+            and not self.exclusion_arg
+            and default_selector_name
+        ):
             # use pre-defined selector (--selector) with default: true
             fire_event(DefaultSelector(name=default_selector_name))
-            spec = self.config.get_selector(default_selector_name)
+            return self.config.get_selector(default_selector_name)
         else:
             # use --select and --exclude args
-            spec = parse_difference(self.selection_arg, self.exclusion_arg, indirect_selection)
-        return spec
+            return parse_difference(
+                self.selection_arg, self.exclusion_arg, indirect_selection
+            )
 
     @abstractmethod
     def get_node_selector(self) -> NodeSelector:
@@ -308,10 +313,7 @@ class GraphRunnableTask(ConfiguredTask):
             raise DbtInternalError("manifest was None in _handle_result")
 
         if result.status in self.MARK_DEPENDENT_ERRORS_STATUSES:
-            if is_ephemeral:
-                cause = result
-            else:
-                cause = None
+            cause = result if is_ephemeral else None
             self._mark_dependent_errors(node.unique_id, result, cause)
 
     def _cancel_connections(self, pool):
@@ -507,7 +509,7 @@ class GraphRunnableTask(ConfiguredTask):
                 NodeStatus.Skipped,  # propogate error message causing skip
             )
         ]
-        return len(failures) == 0
+        return not failures
 
     def get_model_schemas(self, adapter, selected_uids: Iterable[str]) -> Set[BaseRelation]:
         if self.manifest is None:
@@ -537,11 +539,7 @@ class GraphRunnableTask(ConfiguredTask):
             # the database can be None on some warehouses that don't support it
             database_quoted: Optional[str]
             db_lowercase = dbt.utils.lowercase(db_only.database)
-            if db_only.database is None:
-                database_quoted = None
-            else:
-                database_quoted = str(db_only)
-
+            database_quoted = None if db_only.database is None else str(db_only)
             # we should never create a null schema, so just filter them out
             return [
                 (db_lowercase, s.lower())
@@ -560,10 +558,7 @@ class GraphRunnableTask(ConfiguredTask):
 
         with dbt.utils.executor(self.config) as tpe:
             for req in required_databases:
-                if req.database is None:
-                    name = "list_schemas"
-                else:
-                    name = f"list_{req.database}"
+                name = "list_schemas" if req.database is None else f"list_{req.database}"
                 fut = tpe.submit_connected(adapter, name, list_schemas, req)
                 list_futures.append(fut)
 

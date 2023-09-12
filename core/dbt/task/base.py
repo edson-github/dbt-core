@@ -60,12 +60,11 @@ def read_profiles(profiles_dir=None):
 
     raw_profiles = read_profile(profiles_dir)
 
-    if raw_profiles is None:
-        profiles = {}
-    else:
-        profiles = {k: v for (k, v) in raw_profiles.items() if k != "config"}
-
-    return profiles
+    return (
+        {}
+        if raw_profiles is None
+        else {k: v for (k, v) in raw_profiles.items() if k != "config"}
+    )
 
 
 class BaseTask(metaclass=ABCMeta):
@@ -355,12 +354,11 @@ class BaseRunner(metaclass=ABCMeta):
     def handle_exception(self, e, ctx):
         catchable_errors = (CompilationError, DbtRuntimeError)
         if isinstance(e, catchable_errors):
-            error = self._handle_catchable_exception(e, ctx)
+            return self._handle_catchable_exception(e, ctx)
         elif isinstance(e, DbtInternalError):
-            error = self._handle_internal_exception(e, ctx)
+            return self._handle_internal_exception(e, ctx)
         else:
-            error = self._handle_generic_exception(e, ctx)
-        return error
+            return self._handle_generic_exception(e, ctx)
 
     def safe_run(self, manifest):
         started = time.time()
@@ -449,12 +447,7 @@ class BaseRunner(metaclass=ABCMeta):
                         "Skip cause not set but skip was somehow caused by an ephemeral failure"
                     )
                 # set an error so dbt will exit with an error code
-                error_message = (
-                    "Compilation Error in {}, caused by compilation error "
-                    "in referenced ephemeral model {}".format(
-                        self.node.unique_id, self.skip_cause.node.unique_id
-                    )
-                )
+                error_message = f"Compilation Error in {self.node.unique_id}, caused by compilation error in referenced ephemeral model {self.skip_cause.node.unique_id}"
             else:
                 # 'skipped' nodes should not have a value for 'node_finished_at'
                 # they do have 'node_started_at', which is set in GraphRunnableTask.call_runner
@@ -470,8 +463,7 @@ class BaseRunner(metaclass=ABCMeta):
                     )
                 )
 
-        node_result = RunResult.from_node(self.node, RunStatus.Skipped, error_message)
-        return node_result
+        return RunResult.from_node(self.node, RunStatus.Skipped, error_message)
 
     def do_skip(self, cause=None):
         self.skip = True

@@ -94,19 +94,18 @@ class SchemaYamlContext(ConfiguredContext):
         elif default is not None:
             return_value = default
 
-        if return_value is not None:
-            if self.schema_yaml_vars:
-                # If the environment variable is set from a default, store a string indicating
-                # that so we can skip partial parsing.  Otherwise the file will be scheduled for
-                # reparsing. If the default changes, the file will have been updated and therefore
-                # will be scheduled for reparsing anyways.
-                self.schema_yaml_vars.env_vars[var] = (
-                    return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
-                )
-
-            return return_value
-        else:
+        if return_value is None:
             raise EnvVarMissingError(var)
+        if self.schema_yaml_vars:
+            # If the environment variable is set from a default, store a string indicating
+            # that so we can skip partial parsing.  Otherwise the file will be scheduled for
+            # reparsing. If the default changes, the file will have been updated and therefore
+            # will be scheduled for reparsing anyways.
+            self.schema_yaml_vars.env_vars[var] = (
+                return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
+            )
+
+        return return_value
 
 
 class MacroResolvingContext(ConfiguredContext):

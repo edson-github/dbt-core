@@ -64,11 +64,7 @@ class SQLConnectionManager(BaseConnectionManager):
         )
 
         with self.exception_handler(sql):
-            if abridge_sql_log:
-                log_sql = "{}...".format(sql[:512])
-            else:
-                log_sql = sql
-
+            log_sql = f"{sql[:512]}..." if abridge_sql_log else sql
             fire_event(
                 SQLQuery(
                     conn_name=cast_to_str(connection.name), sql=log_sql, node_info=get_node_info()
@@ -102,7 +98,7 @@ class SQLConnectionManager(BaseConnectionManager):
         cls, column_names: Iterable[str], rows: Iterable[Any]
     ) -> List[Dict[str, Any]]:
         # TODO CT-211
-        unique_col_names = dict()  # type: ignore[var-annotated]
+        unique_col_names = {}
         # TODO CT-211
         for idx in range(len(column_names)):  # type: ignore[arg-type]
             # TODO CT-211
@@ -123,10 +119,7 @@ class SQLConnectionManager(BaseConnectionManager):
 
         if cursor.description is not None:
             column_names = [col[0] for col in cursor.description]
-            if limit:
-                rows = cursor.fetchmany(limit)
-            else:
-                rows = cursor.fetchall()
+            rows = cursor.fetchmany(limit) if limit else cursor.fetchall()
             data = cls.process_results(column_names, rows)
 
         return dbt.clients.agate_helper.table_from_data_flat(data, column_names)
@@ -157,8 +150,7 @@ class SQLConnectionManager(BaseConnectionManager):
         connection = self.get_thread_connection()
         if connection.transaction_open is True:
             raise dbt.exceptions.DbtInternalError(
-                'Tried to begin a new transaction on connection "{}", but '
-                "it already had one open!".format(connection.name)
+                f'Tried to begin a new transaction on connection "{connection.name}", but it already had one open!'
             )
 
         self.add_begin_query()
@@ -170,8 +162,7 @@ class SQLConnectionManager(BaseConnectionManager):
         connection = self.get_thread_connection()
         if connection.transaction_open is False:
             raise dbt.exceptions.DbtInternalError(
-                'Tried to commit transaction on connection "{}", but '
-                "it does not have one open!".format(connection.name)
+                f'Tried to commit transaction on connection "{connection.name}", but it does not have one open!'
             )
 
         fire_event(SQLCommit(conn_name=connection.name, node_info=get_node_info()))

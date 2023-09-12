@@ -136,7 +136,7 @@ class BaseResult(dbtClassMixin):
         return data
 
     def to_msg_dict(self):
-        msg_dict = {
+        return {
             "status": str(self.status),
             "message": cast_to_str(self.message),
             "thread": self.thread_id,
@@ -145,7 +145,6 @@ class BaseResult(dbtClassMixin):
             "timing_info": [ti.to_msg_dict() for ti in self.timing],
             "adapter_response": self.adapter_response,
         }
-        return msg_dict
 
 
 @dataclass
@@ -339,8 +338,7 @@ def process_freshness_result(result: FreshnessNodeResult) -> FreshnessNodeOutput
     # we know that this must be a SourceFreshnessResult
     if not isinstance(result, SourceFreshnessResult):
         raise DbtInternalError(
-            "Got {} instead of a SourceFreshnessResult for a "
-            "non-error result in freshness execution!".format(type(result))
+            f"Got {type(result)} instead of a SourceFreshnessResult for a non-error result in freshness execution!"
         )
     # if we're here, we must have a non-None freshness threshold
     criteria = result.node.freshness

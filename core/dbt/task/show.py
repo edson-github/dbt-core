@@ -53,10 +53,7 @@ class ShowTask(CompileTask):
         super()._runtime_initialize()
 
     def get_runner_type(self, node):
-        if isinstance(node, SeedNode):
-            return SeedRunner
-        else:
-            return ShowRunner
+        return SeedRunner if isinstance(node, SeedNode) else ShowRunner
 
     def task_end_messages(self, results):
         is_inline = bool(getattr(self.args, "inline", None))

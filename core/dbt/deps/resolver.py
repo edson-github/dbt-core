@@ -37,10 +37,9 @@ class PackageListing:
         return bool(self.packages)
 
     def _pick_key(self, key: BasePackage) -> str:
-        for name in key.all_names():
-            if name in self.packages:
-                return name
-        return key.name
+        return next(
+            (name for name in key.all_names() if name in self.packages), key.name
+        )
 
     def __contains__(self, key: BasePackage):
         for name in key.all_names():
@@ -80,7 +79,7 @@ class PackageListing:
             elif isinstance(contract, RegistryPackage):
                 pkg = RegistryUnpinnedPackage.from_contract(contract)
             else:
-                raise DbtInternalError("Invalid package type {}".format(type(contract)))
+                raise DbtInternalError(f"Invalid package type {type(contract)}")
             self.incorporate(pkg)
 
     @classmethod

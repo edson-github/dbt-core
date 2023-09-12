@@ -35,7 +35,7 @@ class Column:
 
     @property
     def quoted(self) -> str:
-        return '"{}"'.format(self.column)
+        return f'"{self.column}"'
 
     @property
     def data_type(self) -> str:
@@ -103,11 +103,11 @@ class Column:
         return other_column.string_size() > self.string_size()
 
     def literal(self, value: Any) -> str:
-        return "{}::{}".format(value, self.data_type)
+        return f"{value}::{self.data_type}"
 
     @classmethod
     def string_type(cls, size: int) -> str:
-        return "character varying({})".format(size)
+        return f"character varying({size})"
 
     @classmethod
     def numeric_type(cls, dtype: str, precision: Any, scale: Any) -> str:
@@ -116,10 +116,10 @@ class Column:
         if precision is None or scale is None:
             return dtype
         else:
-            return "{}({},{})".format(dtype, precision, scale)
+            return f"{dtype}({precision},{scale})"
 
     def __repr__(self) -> str:
-        return "<Column {} ({})>".format(self.name, self.data_type)
+        return f"<Column {self.name} ({self.data_type})>"
 
     @classmethod
     def from_description(cls, name: str, raw_data_type: str) -> "Column":

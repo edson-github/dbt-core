@@ -75,10 +75,10 @@ def collect_artifact_schema(args: Arguments):
     filtered_artifacts = filter(
         lambda a: a.dbt_schema_version.name == args.artifact or args.artifact is None, artifacts
     )
-    artifact_infos = []
-    for artifact_cls in filtered_artifacts:
-        artifact_infos.append(ArtifactInfo.from_artifact_cls(artifact_cls))
-
+    artifact_infos = [
+        ArtifactInfo.from_artifact_cls(artifact_cls)
+        for artifact_cls in filtered_artifacts
+    ]
     if args and args.path is not None:
         for artifact_info in artifact_infos:
             dest_dir = args.path.resolve()

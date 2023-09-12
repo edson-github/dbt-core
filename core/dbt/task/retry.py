@@ -70,13 +70,11 @@ class RetryTask(ConfiguredTask):
         self.task_class = TASK_DICT.get(self.previous_command_name)
 
     def run(self):
-        unique_ids = set(
-            [
-                result.unique_id
-                for result in self.previous_state.results.results
-                if result.status in RETRYABLE_STATUSES
-            ]
-        )
+        unique_ids = {
+            result.unique_id
+            for result in self.previous_state.results.results
+            if result.status in RETRYABLE_STATUSES
+        }
 
         cli_command = CMD_DICT.get(self.previous_command_name)
 
@@ -109,8 +107,7 @@ class RetryTask(ConfiguredTask):
             self.manifest,
         )
 
-        return_value = task.run()
-        return return_value
+        return task.run()
 
     def interpret_results(self, *args, **kwargs):
         return self.task_class.interpret_results(*args, **kwargs)

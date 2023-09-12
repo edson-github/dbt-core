@@ -36,8 +36,7 @@ class SqlBlockParser(SimpleSQLParser[SqlNode]):
         # we do it this way to make mypy happy
         if not isinstance(block, SqlBlock):
             raise DbtInternalError(
-                "While parsing SQL operation, got an actual file block instead of "
-                "an SQL block: {}".format(block)
+                f"While parsing SQL operation, got an actual file block instead of an SQL block: {block}"
             )
 
         return os.path.join("sql", block.name)
@@ -58,5 +57,4 @@ class SqlMacroParser(MacroParser):
             language="sql",
             resource_type=NodeType.Macro,
         )
-        for node in self.parse_unparsed_macros(base):
-            yield node
+        yield from self.parse_unparsed_macros(base)

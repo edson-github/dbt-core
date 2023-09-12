@@ -133,9 +133,9 @@ class ExposureParser(YamlReader):
             generator = UnrenderedConfigGenerator(self.root_project)
 
         # configs with precendence set
-        precedence_configs = dict()
+        precedence_configs = {}
         # apply exposure configs
-        precedence_configs.update(target.config)
+        precedence_configs |= target.config
 
         return generator.calculate_node_config(
             config_call_dict={},
@@ -169,16 +169,16 @@ class MetricParser(YamlReader):
     ) -> MetricInputMeasure:
         if isinstance(unparsed_input_measure, str):
             return MetricInputMeasure(name=unparsed_input_measure)
-        else:
-            filter: Optional[WhereFilter] = None
-            if unparsed_input_measure.filter is not None:
-                filter = WhereFilter(where_sql_template=unparsed_input_measure.filter)
-
-            return MetricInputMeasure(
-                name=unparsed_input_measure.name,
-                filter=filter,
-                alias=unparsed_input_measure.alias,
-            )
+        filter = (
+            WhereFilter(where_sql_template=unparsed_input_measure.filter)
+            if unparsed_input_measure.filter is not None
+            else None
+        )
+        return MetricInputMeasure(
+            name=unparsed_input_measure.name,
+            filter=filter,
+            alias=unparsed_input_measure.alias,
+        )
 
     def _get_optional_input_measure(
         self,
@@ -195,83 +195,80 @@ class MetricParser(YamlReader):
     ) -> List[MetricInputMeasure]:
         input_measures: List[MetricInputMeasure] = []
         if unparsed_input_measures is not None:
-            for unparsed_input_measure in unparsed_input_measures:
-                input_measures.append(self._get_input_measure(unparsed_input_measure))
-
+            input_measures.extend(
+                self._get_input_measure(unparsed_input_measure)
+                for unparsed_input_measure in unparsed_input_measures
+            )
         return input_measures
 
     def _get_time_window(
         self,
         unparsed_window: Optional[str],
     ) -> Optional[MetricTimeWindow]:
-        if unparsed_window is not None:
-            parts = unparsed_window.split(" ")
-            if len(parts) != 2:
-                raise YamlParseDictError(
-                    self.yaml.path,
-                    "window",
-                    {"window": unparsed_window},
-                    f"Invalid window ({unparsed_window}) in cumulative metric. Should be of the form `<count> <granularity>`, "
-                    "e.g., `28 days`",
-                )
-
-            granularity = parts[1]
-            # once we drop python 3.8 this could just be `granularity = parts[0].removesuffix('s')
-            if granularity.endswith("s"):
-                # months -> month
-                granularity = granularity[:-1]
-            if granularity not in [item.value for item in TimeGranularity]:
-                raise YamlParseDictError(
-                    self.yaml.path,
-                    "window",
-                    {"window": unparsed_window},
-                    f"Invalid time granularity {granularity} in cumulative metric window string: ({unparsed_window})",
-                )
-
-            count = parts[0]
-            if not count.isdigit():
-                raise YamlParseDictError(
-                    self.yaml.path,
-                    "window",
-                    {"window": unparsed_window},
-                    f"Invalid count ({count}) in cumulative metric window string: ({unparsed_window})",
-                )
-
-            return MetricTimeWindow(
-                count=int(count),
-                granularity=TimeGranularity(granularity),
-            )
-        else:
+        if unparsed_window is None:
             return None
+        parts = unparsed_window.split(" ")
+        if len(parts) != 2:
+            raise YamlParseDictError(
+                self.yaml.path,
+                "window",
+                {"window": unparsed_window},
+                f"Invalid window ({unparsed_window}) in cumulative metric. Should be of the form `<count> <granularity>`, "
+                "e.g., `28 days`",
+            )
+
+        granularity = parts[1]
+        # once we drop python 3.8 this could just be `granularity = parts[0].removesuffix('s')
+        if granularity.endswith("s"):
+            # months -> month
+            granularity = granularity[:-1]
+        if granularity not in [item.value for item in TimeGranularity]:
+            raise YamlParseDictError(
+                self.yaml.path,
+                "window",
+                {"window": unparsed_window},
+                f"Invalid time granularity {granularity} in cumulative metric window string: ({unparsed_window})",
+            )
+
+        count = parts[0]
+        if not count.isdigit():
+            raise YamlParseDictError(
+                self.yaml.path,
+                "window",
+                {"window": unparsed_window},
+                f"Invalid count ({count}) in cumulative metric window string: ({unparsed_window})",
+            )
+
+        return MetricTimeWindow(
+            count=int(count),
+            granularity=TimeGranularity(granularity),
+        )
 
     def _get_metric_input(self, unparsed: Union[UnparsedMetricInput, str]) -> MetricInput:
         if isinstance(unparsed, str):
             return MetricInput(name=unparsed)
-        else:
-            offset_to_grain: Optional[TimeGranularity] = None
-            if unparsed.offset_to_grain is not None:
-                offset_to_grain = TimeGranularity(unparsed.offset_to_grain)
+        offset_to_grain = (
+            TimeGranularity(unparsed.offset_to_grain)
+            if unparsed.offset_to_grain is not None
+            else None
+        )
+        filter: Optional[WhereFilter] = None
+        if unparsed.filter is not None:
+            filter = WhereFilter(where_sql_template=unparsed.filter)
 
-            filter: Optional[WhereFilter] = None
-            if unparsed.filter is not None:
-                filter = WhereFilter(where_sql_template=unparsed.filter)
-
-            return MetricInput(
-                name=unparsed.name,
-                filter=filter,
-                alias=unparsed.alias,
-                offset_window=self._get_time_window(unparsed.offset_window),
-                offset_to_grain=offset_to_grain,
-            )
+        return MetricInput(
+            name=unparsed.name,
+            filter=filter,
+            alias=unparsed.alias,
+            offset_window=self._get_time_window(unparsed.offset_window),
+            offset_to_grain=offset_to_grain,
+        )
 
     def _get_optional_metric_input(
         self,
         unparsed: Optional[Union[UnparsedMetricInput, str]],
     ) -> Optional[MetricInput]:
-        if unparsed is not None:
-            return self._get_metric_input(unparsed)
-        else:
-            return None
+        return self._get_metric_input(unparsed) if unparsed is not None else None
 
     def _get_metric_inputs(
         self,
@@ -279,9 +276,10 @@ class MetricParser(YamlReader):
     ) -> List[MetricInput]:
         metric_inputs: List[MetricInput] = []
         if unparsed_metric_inputs is not None:
-            for unparsed_metric_input in unparsed_metric_inputs:
-                metric_inputs.append(self._get_metric_input(unparsed=unparsed_metric_input))
-
+            metric_inputs.extend(
+                self._get_metric_input(unparsed=unparsed_metric_input)
+                for unparsed_metric_input in unparsed_metric_inputs
+            )
         return metric_inputs
 
     def _get_metric_type_params(self, type_params: UnparsedMetricTypeParams) -> MetricTypeParams:
@@ -372,9 +370,9 @@ class MetricParser(YamlReader):
             generator = UnrenderedConfigGenerator(self.root_project)
 
         # configs with precendence set
-        precedence_configs = dict()
+        precedence_configs = {}
         # first apply metric configs
-        precedence_configs.update(target.config)
+        precedence_configs |= target.config
 
         config = generator.calculate_node_config(
             config_call_dict={},
@@ -449,34 +447,33 @@ class SemanticModelParser(YamlReader):
             return None
 
     def _get_dimensions(self, unparsed_dimensions: List[UnparsedDimension]) -> List[Dimension]:
-        dimensions: List[Dimension] = []
-        for unparsed in unparsed_dimensions:
-            dimensions.append(
-                Dimension(
-                    name=unparsed.name,
-                    type=DimensionType(unparsed.type),
-                    description=unparsed.description,
-                    is_partition=unparsed.is_partition,
-                    type_params=self._get_dimension_type_params(unparsed=unparsed.type_params),
-                    expr=unparsed.expr,
-                    metadata=None,  # TODO: requires a fair bit of parsing context
-                )
+        dimensions: List[Dimension] = [
+            Dimension(
+                name=unparsed.name,
+                type=DimensionType(unparsed.type),
+                description=unparsed.description,
+                is_partition=unparsed.is_partition,
+                type_params=self._get_dimension_type_params(
+                    unparsed=unparsed.type_params
+                ),
+                expr=unparsed.expr,
+                metadata=None,  # TODO: requires a fair bit of parsing context
             )
+            for unparsed in unparsed_dimensions
+        ]
         return dimensions
 
     def _get_entities(self, unparsed_entities: List[UnparsedEntity]) -> List[Entity]:
-        entities: List[Entity] = []
-        for unparsed in unparsed_entities:
-            entities.append(
-                Entity(
-                    name=unparsed.name,
-                    type=EntityType(unparsed.type),
-                    description=unparsed.description,
-                    role=unparsed.role,
-                    expr=unparsed.expr,
-                )
+        entities: List[Entity] = [
+            Entity(
+                name=unparsed.name,
+                type=EntityType(unparsed.type),
+                description=unparsed.description,
+                role=unparsed.role,
+                expr=unparsed.expr,
             )
-
+            for unparsed in unparsed_entities
+        ]
         return entities
 
     def _get_non_additive_dimension(
@@ -492,21 +489,20 @@ class SemanticModelParser(YamlReader):
             return None
 
     def _get_measures(self, unparsed_measures: List[UnparsedMeasure]) -> List[Measure]:
-        measures: List[Measure] = []
-        for unparsed in unparsed_measures:
-            measures.append(
-                Measure(
-                    name=unparsed.name,
-                    agg=AggregationType(unparsed.agg),
-                    description=unparsed.description,
-                    expr=str(unparsed.expr) if unparsed.expr is not None else None,
-                    agg_params=unparsed.agg_params,
-                    non_additive_dimension=self._get_non_additive_dimension(
-                        unparsed.non_additive_dimension
-                    ),
-                    agg_time_dimension=unparsed.agg_time_dimension,
-                )
+        measures: List[Measure] = [
+            Measure(
+                name=unparsed.name,
+                agg=AggregationType(unparsed.agg),
+                description=unparsed.description,
+                expr=str(unparsed.expr) if unparsed.expr is not None else None,
+                agg_params=unparsed.agg_params,
+                non_additive_dimension=self._get_non_additive_dimension(
+                    unparsed.non_additive_dimension
+                ),
+                agg_time_dimension=unparsed.agg_time_dimension,
             )
+            for unparsed in unparsed_measures
+        ]
         return measures
 
     def _create_metric(self, measure: UnparsedMeasure, enabled: bool) -> None:
@@ -532,9 +528,9 @@ class SemanticModelParser(YamlReader):
             generator = UnrenderedConfigGenerator(self.root_project)
 
         # configs with precendence set
-        precedence_configs = dict()
+        precedence_configs = {}
         # first apply semantic model configs
-        precedence_configs.update(target.config)
+        precedence_configs |= target.config
 
         config = generator.calculate_node_config(
             config_call_dict={},

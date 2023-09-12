@@ -89,17 +89,16 @@ class Graph:
 
         still_removing = True
         while still_removing:
-            nodes_to_remove = list(
+            if nodes_to_remove := [
                 node
                 for node in new_graph
                 if node not in include_nodes
                 and (new_graph.in_degree(node) * new_graph.out_degree(node)) == 0
-            )
-            if len(nodes_to_remove) == 0:
-                still_removing = False
-            else:
+            ]:
                 new_graph.remove_nodes_from(nodes_to_remove)
 
+            else:
+                still_removing = False
         # sort remaining nodes by degree
         remaining_nodes = list(new_graph.nodes())
         remaining_nodes.sort(
@@ -124,7 +123,7 @@ class Graph:
         for node in include_nodes:
             if node not in new_graph:
                 raise ValueError(
-                    "Couldn't find model '{}' -- does it exist or is it disabled?".format(node)
+                    f"Couldn't find model '{node}' -- does it exist or is it disabled?"
                 )
 
         return Graph(new_graph)

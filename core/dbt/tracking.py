@@ -205,12 +205,11 @@ def get_dbt_env_context():
 def track(user, *args, **kwargs):
     if user.do_not_track:
         return
-    else:
-        fire_event(SendingEvent(kwargs=str(kwargs)))
-        try:
-            tracker.track_struct_event(*args, **kwargs)
-        except Exception:
-            fire_event(SendEventFailure())
+    fire_event(SendingEvent(kwargs=str(kwargs)))
+    try:
+        tracker.track_struct_event(*args, **kwargs)
+    except Exception:
+        fire_event(SendEventFailure())
 
 
 def track_project_id(options):
@@ -241,7 +240,7 @@ def track_adapter_info(options):
 
 def track_invocation_start(invocation_context):
     data = {"progress": "start", "result_type": None, "result": None}
-    data.update(invocation_context)
+    data |= invocation_context
     context = [
         SelfDescribingJson(INVOCATION_SPEC, data),
         get_platform_context(),
@@ -356,7 +355,7 @@ def track_deprecation_warn(options):
 
 def track_invocation_end(invocation_context, result_type=None):
     data = {"progress": "end", "result_type": result_type, "result": None}
-    data.update(invocation_context)
+    data |= invocation_context
     context = [
         SelfDescribingJson(INVOCATION_SPEC, data),
         get_platform_context(),
@@ -373,7 +372,7 @@ def track_invalid_invocation(args=None, result_type=None):
     invocation_context = get_base_invocation_context()
     invocation_context.update({"command": args.which})
     data = {"progress": "invalid", "result_type": result_type, "result": None}
-    data.update(invocation_context)
+    data |= invocation_context
     context = [
         SelfDescribingJson(INVOCATION_SPEC, data),
         get_platform_context(),

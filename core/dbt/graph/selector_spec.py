@@ -183,8 +183,7 @@ class BaseSelectionGroup(dbtClassMixin, Iterable[SelectionSpec], metaclass=ABCMe
         self.indirect_selection = indirect_selection
 
     def __iter__(self) -> Iterator[SelectionSpec]:
-        for component in self.components:
-            yield component
+        yield from self.components
 
     @abstractmethod
     def combine_selections(
@@ -194,10 +193,7 @@ class BaseSelectionGroup(dbtClassMixin, Iterable[SelectionSpec], metaclass=ABCMe
         raise NotImplementedError("_combine_selections not implemented!")
 
     def combined(self, selections: List[Set[UniqueId]]) -> Set[UniqueId]:
-        if not selections:
-            return set()
-
-        return self.combine_selections(selections)
+        return set() if not selections else self.combine_selections(selections)
 
 
 class SelectionIntersection(BaseSelectionGroup):

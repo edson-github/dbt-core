@@ -53,10 +53,11 @@ def drop_v9_and_prior_metrics(manifest: dict) -> None:
     manifest["metrics"] = {}
     filtered_disabled_entries = {}
     for entry_name, resource_list in manifest.get("disabled", {}).items():
-        filtered_resource_list = []
-        for resource in resource_list:
-            if resource.get("resource_type") != "metric":
-                filtered_resource_list.append(resource)
+        filtered_resource_list = [
+            resource
+            for resource in resource_list
+            if resource.get("resource_type") != "metric"
+        ]
         filtered_disabled_entries[entry_name] = filtered_resource_list
 
     manifest["disabled"] = filtered_disabled_entries

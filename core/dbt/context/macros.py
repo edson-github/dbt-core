@@ -54,8 +54,7 @@ class MacroNamespace(Mapping):
 
     # special iterator using special keys
     def __iter__(self) -> Iterator[str]:
-        for key in self._keys():
-            yield key
+        yield from self._keys()
 
     def __len__(self):
         return len(self._keys())

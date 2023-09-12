@@ -11,31 +11,24 @@ _context_vars: Dict[str, contextvars.ContextVar] = {}
 
 
 def get_contextvars(prefix: str) -> Dict[str, Any]:
-    rv = {}
     ctx = contextvars.copy_context()
 
     prefix_len = len(prefix)
-    for k in ctx:
-        if k.name.startswith(prefix) and ctx[k] is not Ellipsis:
-            rv[k.name[prefix_len:]] = ctx[k]
-
-    return rv
+    return {
+        k.name[prefix_len:]: ctx[k]
+        for k in ctx
+        if k.name.startswith(prefix) and ctx[k] is not Ellipsis
+    }
 
 
 def get_node_info():
     cvars = get_contextvars(LOG_PREFIX)
-    if "node_info" in cvars:
-        return cvars["node_info"]
-    else:
-        return {}
+    return cvars["node_info"] if "node_info" in cvars else {}
 
 
 def get_project_root():
     cvars = get_contextvars(TASK_PREFIX)
-    if "project_root" in cvars:
-        return cvars["project_root"]
-    else:
-        return None
+    return cvars["project_root"] if "project_root" in cvars else None
 
 
 def clear_contextvars(prefix: str) -> None:

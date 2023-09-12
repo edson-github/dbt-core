@@ -95,7 +95,9 @@ class BaseConstraintsColumnsEqual:
         assert contract_actual_config.enforced is True
 
         expected = ["id", "error", "missing in definition", "missing in contract"]
-        assert all([(exp in log_output or exp.upper() in log_output) for exp in expected])
+        assert all(
+            (exp in log_output or exp.upper() in log_output) for exp in expected
+        )
 
     def test__constraints_wrong_column_data_types(
         self, project, string_type, int_type, schema_string_type, schema_int_type, data_types
@@ -139,7 +141,10 @@ class BaseConstraintsColumnsEqual:
                 wrong_schema_error_data_type,
                 "data type mismatch",
             ]
-            assert all([(exp in log_output or exp.upper() in log_output) for exp in expected])
+            assert all(
+                (exp in log_output or exp.upper() in log_output)
+                for exp in expected
+            )
 
     def test__constraints_correct_column_data_types(self, project, data_types):
         for (sql_column_value, schema_data_type, _) in data_types:

@@ -68,36 +68,35 @@ class PostgresMaterializedViewConfig(RelationConfigBase, RelationConfigValidatio
     @classmethod
     def from_model_node(cls, model_node: ModelNode) -> "PostgresMaterializedViewConfig":
         materialized_view_config = cls.parse_model_node(model_node)
-        materialized_view = cls.from_dict(materialized_view_config)
-        return materialized_view
+        return cls.from_dict(materialized_view_config)
 
     @classmethod
     def parse_model_node(cls, model_node: ModelNode) -> dict:
         indexes: List[dict] = model_node.config.extra.get("indexes", [])
-        config_dict = {
+        return {
             "table_name": model_node.identifier,
             "query": model_node.compiled_code,
-            "indexes": [PostgresIndexConfig.parse_model_node(index) for index in indexes],
+            "indexes": [
+                PostgresIndexConfig.parse_model_node(index) for index in indexes
+            ],
         }
-        return config_dict
 
     @classmethod
     def from_relation_results(
         cls, relation_results: RelationResults
     ) -> "PostgresMaterializedViewConfig":
         materialized_view_config = cls.parse_relation_results(relation_results)
-        materialized_view = cls.from_dict(materialized_view_config)
-        return materialized_view
+        return cls.from_dict(materialized_view_config)
 
     @classmethod
     def parse_relation_results(cls, relation_results: RelationResults) -> dict:
         indexes: agate.Table = relation_results.get("indexes", agate.Table(rows={}))
-        config_dict = {
+        return {
             "indexes": [
-                PostgresIndexConfig.parse_relation_results(index) for index in indexes.rows
+                PostgresIndexConfig.parse_relation_results(index)
+                for index in indexes.rows
             ],
         }
-        return config_dict
 
 
 @dataclass

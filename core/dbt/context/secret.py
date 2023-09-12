@@ -38,19 +38,18 @@ class SecretContext(BaseContext):
         elif default is not None:
             return_value = default
 
-        if return_value is not None:
-            # store env vars in the internal manifest to power partial parsing
-            # if it's a 'secret' env var, we shouldn't even get here
-            # but just to be safe — don't save secrets
-            if not var.startswith(SECRET_ENV_PREFIX):
-                # If the environment variable is set from a default, store a string indicating
-                # that so we can skip partial parsing.  Otherwise the file will be scheduled for
-                # reparsing. If the default changes, the file will have been updated and therefore
-                # will be scheduled for reparsing anyways.
-                self.env_vars[var] = return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
-            return return_value
-        else:
+        if return_value is None:
             raise EnvVarMissingError(var)
+        # store env vars in the internal manifest to power partial parsing
+        # if it's a 'secret' env var, we shouldn't even get here
+        # but just to be safe — don't save secrets
+        if not var.startswith(SECRET_ENV_PREFIX):
+            # If the environment variable is set from a default, store a string indicating
+            # that so we can skip partial parsing.  Otherwise the file will be scheduled for
+            # reparsing. If the default changes, the file will have been updated and therefore
+            # will be scheduled for reparsing anyways.
+            self.env_vars[var] = return_value if var in os.environ else DEFAULT_ENV_PLACEHOLDER
+        return return_value
 
 
 def generate_secret_context(cli_vars: Dict[str, Any]) -> Dict[str, Any]:

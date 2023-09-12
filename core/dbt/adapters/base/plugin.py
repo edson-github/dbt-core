@@ -36,7 +36,4 @@ class AdapterPlugin:
         self.include_path: str = include_path
         self.project_name: str = project_name_from_path(include_path)
         self.dependencies: List[str]
-        if dependencies is None:
-            self.dependencies = []
-        else:
-            self.dependencies = dependencies
+        self.dependencies = [] if dependencies is None else dependencies

@@ -28,8 +28,13 @@ from dbt.exceptions import (
     UndefinedMacroError,
 )
 
-dbt_function_key_words = set(["ref", "source", "config", "get"])
-dbt_function_full_names = set(["dbt.ref", "dbt.source", "dbt.config", "dbt.config.get"])
+dbt_function_key_words = {"ref", "source", "config", "get"}
+dbt_function_full_names = {
+    "dbt.ref",
+    "dbt.source",
+    "dbt.config",
+    "dbt.config.get",
+}
 
 
 class PythonValidationVisitor(ast.NodeVisitor):
@@ -41,7 +46,7 @@ class PythonValidationVisitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if node.name == "model":
             self.num_model_def += 1
-            if node.args.args and not node.args.args[0].arg == "dbt":
+            if node.args.args and node.args.args[0].arg != "dbt":
                 self.dbt_errors.append("'dbt' not provided for model as the first argument")
             if len(node.args.args) != 2:
                 self.dbt_errors.append(
@@ -77,11 +82,9 @@ class PythonParseVisitor(ast.NodeVisitor):
     @classmethod
     def _flatten_attr(cls, node):
         if isinstance(node, ast.Attribute):
-            return str(cls._flatten_attr(node.value)) + "." + node.attr
+            return f"{str(cls._flatten_attr(node.value))}.{node.attr}"
         elif isinstance(node, ast.Name):
             return str(node.id)
-        else:
-            pass
 
     def _safe_eval(self, node):
         try:
@@ -123,12 +126,10 @@ class PythonParseVisitor(ast.NodeVisitor):
         for obj in node.args + [kwarg.value for kwarg in node.keywords]:
             if isinstance(obj, ast.Call):
                 self.visit_Call(obj)
-            # support dbt.ref in list args, kwargs
-            elif isinstance(obj, ast.List) or isinstance(obj, ast.Tuple):
+            elif isinstance(obj, (ast.List, ast.Tuple)):
                 for el in obj.elts:
                     if isinstance(el, ast.Call):
                         self.visit_Call(el)
-            # support dbt.ref in dict args, kwargs
             elif isinstance(obj, ast.Dict):
                 for value in obj.values:
                     if isinstance(value, ast.Call):
@@ -526,10 +527,7 @@ def _get_config_call_dict(static_parser_result: Dict[str, Any]) -> Dict[str, Any
 # TODO if we format sources in the extractor to match this type, we won't need this function.
 def _shift_sources(static_parser_result: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
     shifted_result = deepcopy(static_parser_result)
-    source_calls = []
-
-    for s in static_parser_result["sources"]:
-        source_calls.append([s[0], s[1]])
+    source_calls = [[s[0], s[1]] for s in static_parser_result["sources"]]
     shifted_result["sources"] = source_calls
 
     return shifted_result

@@ -63,13 +63,13 @@ def synthesize_generic_test_names(
     # if the full name is too long, include the first 30 identifying chars plus
     # a 32-character hash of the full contents
 
-    test_identifier = "{}_{}".format(test_type, test_name)
-    full_name = "{}_{}".format(test_identifier, unique)
+    test_identifier = f"{test_type}_{test_name}"
+    full_name = f"{test_identifier}_{unique}"
 
     if len(full_name) >= 64:
         test_trunc_identifier = test_identifier[:30]
         label = md5(full_name)
-        short_name = "{}_{}".format(test_trunc_identifier, label)
+        short_name = f"{test_trunc_identifier}_{label}"
     else:
         short_name = full_name
 
@@ -191,7 +191,7 @@ class TestBuilder(Generic[Testable]):
                 self.config["alias"] = short_name
 
     def _bad_type(self) -> TypeError:
-        return TypeError('invalid target type "{}"'.format(type(self.target)))
+        return TypeError(f'invalid target type "{type(self.target)}"')
 
     @staticmethod
     def extract_test_args(test, name=None) -> Tuple[str, Dict[str, Any]]:
@@ -232,11 +232,7 @@ class TestBuilder(Generic[Testable]):
 
     @property
     def severity(self) -> Optional[str]:
-        sev = self.config.get("severity")
-        if sev:
-            return sev.upper()
-        else:
-            return None
+        return sev.upper() if (sev := self.config.get("severity")) else None
 
     @property
     def store_failures(self) -> Optional[bool]:
@@ -314,9 +310,9 @@ class TestBuilder(Generic[Testable]):
         return tags[:]
 
     def macro_name(self) -> str:
-        macro_name = "test_{}".format(self.name)
+        macro_name = f"test_{self.name}"
         if self.namespace is not None:
-            macro_name = "{}.{}".format(self.namespace, macro_name)
+            macro_name = f"{self.namespace}.{macro_name}"
         return macro_name
 
     def get_synthetic_test_names(self) -> Tuple[str, str]:
@@ -329,11 +325,11 @@ class TestBuilder(Generic[Testable]):
         elif isinstance(self.target, UnparsedNodeUpdate):
             name = self.name
         elif isinstance(self.target, UnpatchedSourceDefinition):
-            name = "source_" + self.name
+            name = f"source_{self.name}"
         else:
             raise self._bad_type()
         if self.namespace is not None:
-            name = "{}_{}".format(self.namespace, name)
+            name = f"{self.namespace}_{name}"
         return synthesize_generic_test_names(name, target_name, self.args)
 
     def construct_config(self) -> str:
@@ -348,10 +344,7 @@ class TestBuilder(Generic[Testable]):
                 for key, value in self.config.items()
             ]
         )
-        if configs:
-            return f"{{{{ config({configs}) }}}}"
-        else:
-            return ""
+        return f"{{{{ config({configs}) }}}}" if configs else ""
 
     # this is the 'raw_code' that's used in 'render_update' and execution
     # of the test macro
@@ -364,12 +357,9 @@ class TestBuilder(Generic[Testable]):
 
     def build_model_str(self):
         targ = self.target
-        if isinstance(self.target, UnparsedModelUpdate):
-            if self.version:
-                target_str = f"ref('{targ.name}', version='{self.version}')"
-            else:
-                target_str = f"ref('{targ.name}')"
-        elif isinstance(self.target, UnparsedNodeUpdate):
+        if isinstance(self.target, UnparsedModelUpdate) and self.version:
+            target_str = f"ref('{targ.name}', version='{self.version}')"
+        elif isinstance(self.target, (UnparsedModelUpdate, UnparsedNodeUpdate)):
             target_str = f"ref('{targ.name}')"
         elif isinstance(self.target, UnpatchedSourceDefinition):
             target_str = f"source('{targ.source.name}', '{targ.table.name}')"

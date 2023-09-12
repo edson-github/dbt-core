@@ -40,14 +40,11 @@ class SchemaYamlRenderer(BaseRenderer):
         if len(keypath) == 2 and keypath[1] in ("tests", "description"):
             return True
 
-        if (
+        return (
             len(keypath) >= 3
             and keypath[0] == "columns"
             and keypath[2] in ("tests", "description")
-        ):
-            return True
-
-        return False
+        )
 
     # don't render descriptions or test keyword arguments
     def should_render_keypath(self, keypath: Keypath) -> bool:
@@ -64,15 +61,16 @@ class SchemaYamlRenderer(BaseRenderer):
             if keypath[0] == "arguments":
                 if self._is_norender_key(keypath[1:]):
                     return False
-            elif self._is_norender_key(keypath[0:]):
+            elif self._is_norender_key(keypath[:]):
                 return False
         elif self.key == "metrics":
             # This ensures all key paths that end in 'filter' for a metric are skipped
-            if keypath[-1] == "filter":
+            if (
+                keypath[-1] == "filter"
+                or keypath[-1] != "filter"
+                and self._is_norender_key(keypath[:])
+            ):
                 return False
-            elif self._is_norender_key(keypath[0:]):
-                return False
-        else:  # models, seeds, snapshots, analyses
-            if self._is_norender_key(keypath[0:]):
-                return False
+        elif self._is_norender_key(keypath[:]):
+            return False
         return True

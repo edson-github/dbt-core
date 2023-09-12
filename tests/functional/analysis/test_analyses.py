@@ -65,8 +65,6 @@ class TestAnalyses:
         assert os.path.exists(path_1)
         assert os.path.exists(path_2)
 
-        expected_sql = 'select * from "{}"."{}"."my_model"'.format(
-            project.database, project.test_schema
-        )
+        expected_sql = f'select * from "{project.database}"."{project.test_schema}"."my_model"'
         self.assert_contents_equal(path_1, expected_sql)
         self.assert_contents_equal(path_2, "{% invalid jinja stuff %}")

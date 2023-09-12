@@ -56,7 +56,7 @@ class GitPinnedPackage(GitPackageMixin, PinnedPackage):
         if self.revision == "HEAD":
             return "HEAD (default revision)"
         else:
-            return "revision {}".format(self.revision)
+            return f"revision {self.revision}"
 
     def _checkout(self):
         """Performs a shallow clone of the repository into the downloads
@@ -82,7 +82,7 @@ class GitPinnedPackage(GitPackageMixin, PinnedPackage):
     ) -> ProjectPackageMetadata:
         path = self._checkout()
 
-        if (self.revision == "HEAD" or self.revision in ("main", "master")) and self.warn_unpinned:
+        if self.revision in ("HEAD", "main", "master") and self.warn_unpinned:
             warn_or_error(DepsUnpinned(git=self.git))
         partial = PartialProject.from_project_root(path)
         return partial.render_package_metadata(renderer)
@@ -125,10 +125,7 @@ class GitUnpinnedPackage(GitPackageMixin, UnpinnedPackage[GitPinnedPackage]):
         )
 
     def all_names(self) -> List[str]:
-        if self.git.endswith(".git"):
-            other = self.git[:-4]
-        else:
-            other = self.git + ".git"
+        other = self.git[:-4] if self.git.endswith(".git") else f"{self.git}.git"
         return [self.git, other]
 
     def incorporate(self, other: "GitUnpinnedPackage") -> "GitUnpinnedPackage":
@@ -143,7 +140,7 @@ class GitUnpinnedPackage(GitPackageMixin, UnpinnedPackage[GitPinnedPackage]):
 
     def resolved(self) -> GitPinnedPackage:
         requested = set(self.revisions)
-        if len(requested) == 0:
+        if not requested:
             requested = {"HEAD"}
         elif len(requested) > 1:
             raise MultipleVersionGitDepsError(self.git, requested)

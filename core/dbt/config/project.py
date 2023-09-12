@@ -167,17 +167,11 @@ T = TypeVar("T")
 
 
 def flag_or(flag: Optional[T], value: Optional[T], default: T) -> T:
-    if flag is None:
-        return value_or(value, default)
-    else:
-        return flag
+    return value_or(value, default) if flag is None else flag
 
 
 def value_or(value: Optional[T], default: T) -> T:
-    if value is None:
-        return default
-    else:
-        return value
+    return default if value is None else value
 
 
 def load_raw_project(project_root: str) -> Dict[str, Any]:
@@ -234,24 +228,21 @@ def _get_required_version(
     project_dict: Dict[str, Any],
     verify_version: bool,
 ) -> List[VersionSpecifier]:
-    dbt_raw_version: Union[List[str], str] = ">=0.0.0"
     required = project_dict.get("require-dbt-version")
-    if required is not None:
-        dbt_raw_version = required
-
+    dbt_raw_version = required if required is not None else ">=0.0.0"
     try:
         dbt_version = _parse_versions(dbt_raw_version)
     except SemverError as e:
         raise DbtProjectError(str(e)) from e
 
     if verify_version:
-        # no name is also an error that we want to raise
-        if "name" not in project_dict:
+        if "name" in project_dict:
+            validate_version(dbt_version, project_dict["name"])
+
+        else:
             raise DbtProjectError(
                 'Required "name" field not present in project',
             )
-        validate_version(dbt_version, project_dict["name"])
-
     return dbt_version
 
 
@@ -343,7 +334,7 @@ class PartialProject(RenderComponents):
             if not default_value or project_dict[deprecated_path] != default_value:
                 kwargs = {"deprecated_path": deprecated_path}
                 if expected_path:
-                    kwargs.update({"exp_path": expected_path})
+                    kwargs["exp_path"] = expected_path
                 deprecations.warn(f"project-config-{deprecated_path}", **kwargs)
 
     def create_project(self, rendered: RenderComponents) -> "Project":
@@ -412,13 +403,7 @@ class PartialProject(RenderComponents):
 
         clean_targets: List[str] = value_or(cfg.clean_targets, [target_path])
         packages_install_path: str = value_or(cfg.packages_install_path, "dbt_packages")
-        # in the default case we'll populate this once we know the adapter type
-        # It would be nice to just pass along a Quoting here, but that would
-        # break many things
-        quoting: Dict[str, Any] = {}
-        if cfg.quoting is not None:
-            quoting = cfg.quoting.to_dict(omit_none=True)
-
+        quoting = {} if cfg.quoting is None else cfg.quoting.to_dict(omit_none=True)
         dispatch: List[Dict[str, Any]]
         models: Dict[str, Any]
         seeds: Dict[str, Any]
@@ -440,11 +425,7 @@ class PartialProject(RenderComponents):
         metrics = cfg.metrics
         semantic_models = cfg.semantic_models
         exposures = cfg.exposures
-        if cfg.vars is None:
-            vars_dict: Dict[str, Any] = {}
-        else:
-            vars_dict = cfg.vars
-
+        vars_dict = {} if cfg.vars is None else cfg.vars
         vars_value = VarProvider(vars_dict)
         # There will never be any project_env_vars when it's first created
         project_env_vars: Dict[str, Any] = {}
@@ -631,10 +612,7 @@ class Project:
 
     @property
     def generic_test_paths(self):
-        generic_test_paths = []
-        for test_path in self.test_paths:
-            generic_test_paths.append(os.path.join(test_path, "generic"))
-        return generic_test_paths
+        return [os.path.join(test_path, "generic") for test_path in self.test_paths]
 
     def __str__(self):
         cfg = self.to_project_config(with_packages=True)
@@ -695,7 +673,7 @@ class Project:
             result["query-comment"] = self.query_comment.to_dict(omit_none=True)
 
         if with_packages:
-            result.update(self.packages.to_dict(omit_none=True))
+            result |= self.packages.to_dict(omit_none=True)
 
         return result
 
@@ -734,17 +712,24 @@ class Project:
         :return: either a selector if default is set or None
         :rtype: Union[SelectionSpec, None]
         """
-        for selector_name, selector in self.selectors.items():
-            if selector["default"] is True:
-                return selector_name
-
-        return None
+        return next(
+            (
+                selector_name
+                for selector_name, selector in self.selectors.items()
+                if selector["default"] is True
+            ),
+            None,
+        )
 
     def get_macro_search_order(self, macro_namespace: str):
-        for dispatch_entry in self.dispatch:
-            if dispatch_entry["macro_namespace"] == macro_namespace:
-                return dispatch_entry["search_order"]
-        return None
+        return next(
+            (
+                dispatch_entry["search_order"]
+                for dispatch_entry in self.dispatch
+                if dispatch_entry["macro_namespace"] == macro_namespace
+            ),
+            None,
+        )
 
     @property
     def project_target_path(self):

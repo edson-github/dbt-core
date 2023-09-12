@@ -53,8 +53,7 @@ def read_profile(profiles_dir: str) -> Dict[str, Any]:
 
 def read_user_config(directory: str) -> UserConfig:
     try:
-        profile = read_profile(directory)
-        if profile:
+        if profile := read_profile(directory):
             user_config = coerce_dict_str(profile.get("config", {}))
             if user_config is not None:
                 UserConfig.validate(user_config)
@@ -116,18 +115,14 @@ class Profile(HasCredentials):
         return result
 
     def to_target_dict(self) -> Dict[str, Any]:
-        target = dict(self.credentials.connection_info(with_aliases=True))
-        target.update(
-            {
-                "type": self.credentials.type,
-                "threads": self.threads,
-                "name": self.target_name,
-                "target_name": self.target_name,
-                "profile_name": self.profile_name,
-                "config": self.user_config.to_dict(omit_none=True),
-            }
-        )
-        return target
+        return dict(self.credentials.connection_info(with_aliases=True)) | {
+            "type": self.credentials.type,
+            "threads": self.threads,
+            "name": self.target_name,
+            "target_name": self.target_name,
+            "profile_name": self.profile_name,
+            "config": self.user_config.to_dict(omit_none=True),
+        }
 
     def __eq__(self, other: object) -> bool:
         if not (isinstance(other, self.__class__) and isinstance(self, other.__class__)):
@@ -155,9 +150,7 @@ class Profile(HasCredentials):
         # attributes. We do want this in order to pick our Credentials class.
         if "type" not in profile:
             raise DbtProfileError(
-                'required field "type" not found in profile {} and target {}'.format(
-                    profile_name, target_name
-                )
+                f'required field "type" not found in profile {profile_name} and target {target_name}'
             )
 
         typename = profile.pop("type")
@@ -169,9 +162,7 @@ class Profile(HasCredentials):
         except (DbtRuntimeError, ValidationError) as e:
             msg = str(e) if isinstance(e, DbtRuntimeError) else e.message
             raise DbtProfileError(
-                'Credentials in profile "{}", target "{}" invalid: {}'.format(
-                    profile_name, target_name, msg
-                )
+                f'Credentials in profile "{profile_name}", target "{target_name}" invalid: {msg}'
             ) from e
 
         return credentials
@@ -216,17 +207,12 @@ defined in your profiles.yml file. You can find profiles.yml here:
         profile: Dict[str, Any], profile_name: str, target_name: str
     ) -> Dict[str, Any]:
         if "outputs" not in profile:
-            raise DbtProfileError("outputs not specified in profile '{}'".format(profile_name))
+            raise DbtProfileError(f"outputs not specified in profile '{profile_name}'")
         outputs = profile["outputs"]
 
         if target_name not in outputs:
-            outputs = "\n".join(" - {}".format(output) for output in outputs)
-            msg = (
-                "The profile '{}' does not have a target named '{}'. The "
-                "valid target names for this profile are:\n{}".format(
-                    profile_name, target_name, outputs
-                )
-            )
+            outputs = "\n".join(f" - {output}" for output in outputs)
+            msg = f"The profile '{profile_name}' does not have a target named '{target_name}'. The valid target names for this profile are:\n{outputs}"
             raise DbtProfileError(msg, result_type="invalid_target")
         profile_data = outputs[target_name]
 
@@ -388,7 +374,7 @@ defined in your profiles.yml file. You can find profiles.yml here:
         :returns: The new Profile object.
         """
         if profile_name not in raw_profiles:
-            raise DbtProjectError("Could not find profile named '{}'".format(profile_name))
+            raise DbtProjectError(f"Could not find profile named '{profile_name}'")
 
         # First, we've already got our final decision on profile name, and we
         # don't render keys, so we can pluck that out

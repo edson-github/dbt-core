@@ -53,9 +53,7 @@ class GraphQueue:
             return False
         # must be a Model - tell mypy this won't be a Source or Exposure or Metric
         assert not isinstance(node, (SourceDefinition, Exposure, Metric))
-        if node.is_ephemeral:
-            return False
-        return True
+        return not node.is_ephemeral
 
     @staticmethod
     def _grouped_topological_sort(

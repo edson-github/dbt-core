@@ -68,14 +68,10 @@ class Policy(FakeAPIObject):
         elif key == ComponentName.Identifier:
             return self.identifier
         else:
-            raise ValueError(
-                "Got a key of {}, expected one of {}".format(key, list(ComponentName))
-            )
+            raise ValueError(f"Got a key of {key}, expected one of {list(ComponentName)}")
 
     def replace_dict(self, dct: Dict[ComponentName, bool]):
-        kwargs: Dict[str, bool] = {}
-        for k, v in dct.items():
-            kwargs[str(k)] = v
+        kwargs: Dict[str, bool] = {str(k): v for k, v in dct.items()}
         return self.replace(**kwargs)
 
 
@@ -88,11 +84,11 @@ class Path(FakeAPIObject):
     def __post_init__(self):
         # handle pesky jinja2.Undefined sneaking in here and messing up rende
         if not isinstance(self.database, (type(None), str)):
-            raise CompilationError("Got an invalid path database: {}".format(self.database))
+            raise CompilationError(f"Got an invalid path database: {self.database}")
         if not isinstance(self.schema, (type(None), str)):
-            raise CompilationError("Got an invalid path schema: {}".format(self.schema))
+            raise CompilationError(f"Got an invalid path schema: {self.schema}")
         if not isinstance(self.identifier, (type(None), str)):
-            raise CompilationError("Got an invalid path identifier: {}".format(self.identifier))
+            raise CompilationError(f"Got an invalid path identifier: {self.identifier}")
 
     def get_lowered_part(self, key: ComponentName) -> Optional[str]:
         part = self.get_part(key)
@@ -108,12 +104,8 @@ class Path(FakeAPIObject):
         elif key == ComponentName.Identifier:
             return self.identifier
         else:
-            raise ValueError(
-                "Got a key of {}, expected one of {}".format(key, list(ComponentName))
-            )
+            raise ValueError(f"Got a key of {key}, expected one of {list(ComponentName)}")
 
     def replace_dict(self, dct: Dict[ComponentName, str]):
-        kwargs: Dict[str, str] = {}
-        for k, v in dct.items():
-            kwargs[str(k)] = v
+        kwargs: Dict[str, str] = {str(k): v for k, v in dct.items()}
         return self.replace(**kwargs)

@@ -58,11 +58,11 @@ class BaseEvent:
     def __init__(self, *args, **kwargs):
         class_name = type(self).__name__
         msg_cls = getattr(types_pb2, class_name)
-        if class_name == "Formatting" and len(args) > 0:
+        if class_name == "Formatting" and args:
             kwargs["msg"] = args[0]
             args = ()
         assert (
-            len(args) == 0
+            not args
         ), f"[{class_name}] Don't use positional arguments when constructing logging events"
         if "base_msg" in kwargs:
             kwargs["base_msg"] = str(kwargs["base_msg"])
@@ -76,12 +76,10 @@ class BaseEvent:
             from dbt.events.functions import fire_event
 
             error_msg = f"[{class_name}]: Unable to parse dict {kwargs}"
-            # If we're testing throw an error so that we notice failures
             if "pytest" in sys.modules:
                 raise Exception(error_msg)
-            else:
-                fire_event(Note(msg=error_msg), level=EventLevel.WARN)
-                self.pb_msg = msg_cls()
+            fire_event(Note(msg=error_msg), level=EventLevel.WARN)
+            self.pb_msg = msg_cls()
 
     def __setattr__(self, key, value):
         if key == "pb_msg":

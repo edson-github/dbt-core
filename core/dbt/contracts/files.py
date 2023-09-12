@@ -161,16 +161,15 @@ class BaseSourceFile(dbtClassMixin, SerializableType):
         return f"{self.project_name}://{self.path.original_file_path}"
 
     def _serialize(self):
-        dct = self.to_dict()
-        return dct
+        return self.to_dict()
 
     @classmethod
     def _deserialize(cls, dct: Dict[str, int]):
-        if dct["parse_file_type"] == "schema":
-            sf = SchemaSourceFile.from_dict(dct)
-        else:
-            sf = SourceFile.from_dict(dct)
-        return sf
+        return (
+            SchemaSourceFile.from_dict(dct)
+            if dct["parse_file_type"] == "schema"
+            else SourceFile.from_dict(dct)
+        )
 
     def __post_serialize__(self, dct):
         dct = super().__post_serialize__(dct)
@@ -208,13 +207,12 @@ class SourceFile(BaseSourceFile):
     # to work long term
     @classmethod
     def remote(cls, contents: str, project_name: str, language: str) -> "SourceFile":
-        self = cls(
+        return cls(
             path=RemoteFile(language),
             checksum=FileHash.from_contents(contents),
             project_name=project_name,
             contents=contents,
         )
-        return self
 
 
 @dataclass

@@ -9,7 +9,7 @@ def env_secrets() -> List[str]:
 
 
 def scrub_secrets(msg: str, secrets: List[str]) -> str:
-    scrubbed = str(msg)
+    scrubbed = msg
 
     for secret in secrets:
         scrubbed = scrubbed.replace(secret, "*****")
@@ -26,5 +26,4 @@ def datetime_to_json_string(dt: datetime) -> str:
 # preformatted time stamp
 def get_json_string_utcnow() -> str:
     ts = datetime.utcnow()
-    ts_rfc3339 = datetime_to_json_string(ts)
-    return ts_rfc3339
+    return datetime_to_json_string(ts)

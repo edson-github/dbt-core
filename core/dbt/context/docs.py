@@ -61,17 +61,16 @@ class DocsRuntimeContext(SchemaYamlContext):
             self._project_name,
             self.node.package_name,
         )
-        if target_doc:
-            file_id = target_doc.file_id
-            if file_id in self.manifest.files:
-                source_file = self.manifest.files[file_id]
-                # TODO CT-211
-                source_file.add_node(self.node.unique_id)  # type: ignore[union-attr]
-        else:
+        if not target_doc:
             raise DocTargetNotFoundError(
                 node=self.node, target_doc_name=doc_name, target_doc_package=doc_package_name
             )
 
+        file_id = target_doc.file_id
+        if file_id in self.manifest.files:
+            source_file = self.manifest.files[file_id]
+            # TODO CT-211
+            source_file.add_node(self.node.unique_id)  # type: ignore[union-attr]
         return target_doc.block_contents
 
 

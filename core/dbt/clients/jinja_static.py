@@ -14,53 +14,42 @@ def statically_extract_macro_calls(string, ctx, db_wrapper=None):
         func_name = None
         if hasattr(func_call, "node") and hasattr(func_call.node, "name"):
             func_name = func_call.node.name
-        else:
-            # func_call for dbt.current_timestamp macro
-            # Call(
-            #   node=Getattr(
-            #     node=Name(
-            #       name='dbt_utils',
-            #       ctx='load'
-            #     ),
-            #     attr='current_timestamp',
-            #     ctx='load
-            #   ),
-            #   args=[],
-            #   kwargs=[],
-            #   dyn_args=None,
-            #   dyn_kwargs=None
-            # )
-            if (
-                hasattr(func_call, "node")
-                and hasattr(func_call.node, "node")
-                and type(func_call.node.node).__name__ == "Name"
-                and hasattr(func_call.node, "attr")
-            ):
-                package_name = func_call.node.node.name
-                macro_name = func_call.node.attr
-                if package_name == "adapter":
-                    if macro_name == "dispatch":
-                        ad_macro_calls = statically_parse_adapter_dispatch(
-                            func_call, ctx, db_wrapper
-                        )
-                        possible_macro_calls.extend(ad_macro_calls)
-                    else:
-                        # This skips calls such as adapter.parse_index
-                        continue
+        elif (
+            hasattr(func_call, "node")
+            and hasattr(func_call.node, "node")
+            and type(func_call.node.node).__name__ == "Name"
+            and hasattr(func_call.node, "attr")
+        ):
+            package_name = func_call.node.node.name
+            macro_name = func_call.node.attr
+            if package_name == "adapter":
+                if macro_name == "dispatch":
+                    ad_macro_calls = statically_parse_adapter_dispatch(
+                        func_call, ctx, db_wrapper
+                    )
+                    possible_macro_calls.extend(ad_macro_calls)
                 else:
-                    func_name = f"{package_name}.{macro_name}"
+                    # This skips calls such as adapter.parse_index
+                    continue
             else:
-                continue
+                func_name = f"{package_name}.{macro_name}"
+        else:
+            continue
         if not func_name:
             continue
-        if func_name in standard_calls:
-            continue
-        elif ctx.get(func_name):
-            continue
-        else:
-            if func_name not in possible_macro_calls:
-                possible_macro_calls.append(func_name)
+        if (
+            func_name not in standard_calls
+            and not ctx.get(func_name)
+            and func_name not in possible_macro_calls
+        ):
+            possible_macro_calls.append(func_name)
 
+        elif (
+            func_name in standard_calls
+            or ctx.get(func_name)
+            or func_name not in possible_macro_calls
+        ):
+            continue
     return possible_macro_calls
 
 
@@ -112,12 +101,10 @@ def statically_parse_adapter_dispatch(func_call, ctx, db_wrapper):
     if func_call.kwargs:
         for kwarg in func_call.kwargs:
             if kwarg.key == "macro_name":
-                # This will remain to enable static resolution
-                if type(kwarg.value).__name__ == "Const":
-                    func_name = kwarg.value.value
-                    possible_macro_calls.append(func_name)
-                else:
+                if type(kwarg.value).__name__ != "Const":
                     raise MacroNameNotStringError(kwarg_value=kwarg.value.value)
+                func_name = kwarg.value.value
+                possible_macro_calls.append(func_name)
             elif kwarg.key == "macro_namespace":
                 # This will remain to enable static resolution
                 kwarg_type = type(kwarg.value).__name__
@@ -128,25 +115,19 @@ def statically_parse_adapter_dispatch(func_call, ctx, db_wrapper):
 
     # positional arguments
     if packages_arg:
-        if packages_arg_type == "List":
-            # This will remain to enable static resolution
-            packages = []
-            for item in packages_arg.items:
-                packages.append(item.value)
-        elif packages_arg_type == "Const":
+        if packages_arg_type == "Const":
             # This will remain to enable static resolution
             macro_namespace = packages_arg.value
 
+        elif packages_arg_type == "List":
+            packages = [item.value for item in packages_arg.items]
     if db_wrapper:
         macro = db_wrapper.dispatch(func_name, macro_namespace=macro_namespace).macro
         func_name = f"{macro.package_name}.{macro.name}"
         possible_macro_calls.append(func_name)
     else:  # this is only for tests/unit/test_macro_calls.py
-        if macro_namespace:
-            packages = [macro_namespace]
-        else:
-            packages = []
-        for package_name in packages:
-            possible_macro_calls.append(f"{package_name}.{func_name}")
-
+        packages = [macro_namespace] if macro_namespace else []
+        possible_macro_calls.extend(
+            f"{package_name}.{func_name}" for package_name in packages
+        )
     return possible_macro_calls

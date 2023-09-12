@@ -257,7 +257,7 @@ class BaseRelation(FakeAPIObject, Hashable):
         if node.resource_type == NodeType.Source:
             if not isinstance(node, SourceDefinition):
                 raise DbtInternalError(
-                    "type mismatch, expected SourceDefinition but got {}".format(type(node))
+                    f"type mismatch, expected SourceDefinition but got {type(node)}"
                 )
             return cls.create_from_source(node, **kwargs)
         else:
@@ -277,16 +277,14 @@ class BaseRelation(FakeAPIObject, Hashable):
         type: Optional[RelationType] = None,
         **kwargs,
     ) -> Self:
-        kwargs.update(
-            {
-                "path": {
-                    "database": database,
-                    "schema": schema,
-                    "identifier": identifier,
-                },
-                "type": type,
-            }
-        )
+        kwargs |= {
+            "path": {
+                "database": database,
+                "schema": schema,
+                "identifier": identifier,
+            },
+            "type": type,
+        }
         return cls.from_dict(kwargs)
 
     @property
@@ -298,7 +296,7 @@ class BaseRelation(FakeAPIObject, Hashable):
         return self.type in self.replaceable_relations
 
     def __repr__(self) -> str:
-        return "<{} {}>".format(self.__class__.__name__, self.render())
+        return f"<{self.__class__.__name__} {self.render()}>"
 
     def __hash__(self) -> int:
         return hash(self.render())
@@ -378,7 +376,7 @@ class InformationSchema(BaseRelation):
     def __post_init__(self):
         if not isinstance(self.information_schema_view, (type(None), str)):
             raise dbt.exceptions.CompilationError(
-                "Got an invalid name: {}".format(self.information_schema_view)
+                f"Got an invalid name: {self.information_schema_view}"
             )
 
     @classmethod
@@ -429,8 +427,7 @@ class InformationSchema(BaseRelation):
         )
 
     def _render_iterator(self):
-        for k, v in super()._render_iterator():
-            yield k, v
+        yield from super()._render_iterator()
         yield None, self.information_schema_view
 
 
@@ -444,9 +441,7 @@ class SchemaSearchMap(Dict[InformationSchema, Set[Optional[str]]]):
         key = relation.information_schema_only()
         if key not in self:
             self[key] = set()
-        schema: Optional[str] = None
-        if relation.schema is not None:
-            schema = relation.schema.lower()
+        schema = relation.schema.lower() if relation.schema is not None else None
         self[key].add(schema)
 
     def search(self) -> Iterator[Tuple[InformationSchema, Optional[str]]]:

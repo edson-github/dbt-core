@@ -67,9 +67,11 @@ class IncludeExclude(dbtClassMixin):
 
 class WarnErrorOptions(IncludeExclude):
     def _validate_items(self, items: List[str]):
-        valid_exception_names = set(
-            [name for name, cls in dbt_event_types.__dict__.items() if isinstance(cls, type)]
-        )
+        valid_exception_names = {
+            name
+            for name, cls in dbt_event_types.__dict__.items()
+            if isinstance(cls, type)
+        }
         for item in items:
             if item not in valid_exception_names:
                 raise ValidationError(f"{item} is not a valid dbt error name.")

@@ -66,10 +66,7 @@ class GitPackage(Package):
     subdirectory: Optional[str] = None
 
     def get_revisions(self) -> List[str]:
-        if self.revision is None:
-            return []
-        else:
-            return [str(self.revision)]
+        return [] if self.revision is None else [str(self.revision)]
 
 
 @dataclass

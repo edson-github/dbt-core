@@ -109,11 +109,11 @@ def track_model_run(index, num_nodes, run_model_result):
         raise DbtInternalError("cannot track model run with no active user")
     invocation_id = get_invocation_id()
     node = run_model_result.node
-    has_group = True if hasattr(node, "group") and node.group else False
+    has_group = bool(hasattr(node, "group") and node.group)
     if node.resource_type == NodeType.Model:
         access = node.access.value if node.access is not None else None
         contract_enforced = node.contract.enforced
-        versioned = True if node.version else False
+        versioned = bool(node.version)
     else:
         access = None
         contract_enforced = False
@@ -145,26 +145,17 @@ def _validate_materialization_relations_dict(inp: Dict[Any, Any], model) -> List
     try:
         relations_value = inp["relations"]
     except KeyError:
-        msg = (
-            'Invalid return value from materialization, "relations" '
-            "not found, got keys: {}".format(list(inp))
-        )
+        msg = f'Invalid return value from materialization, "relations" not found, got keys: {list(inp)}'
         raise CompilationError(msg, node=model) from None
 
     if not isinstance(relations_value, list):
-        msg = (
-            'Invalid return value from materialization, "relations" '
-            "not a list, got: {}".format(relations_value)
-        )
+        msg = f'Invalid return value from materialization, "relations" not a list, got: {relations_value}'
         raise CompilationError(msg, node=model) from None
 
     relations: List[BaseRelation] = []
     for relation in relations_value:
         if not isinstance(relation, BaseRelation):
-            msg = (
-                "Invalid return value from materialization, "
-                '"relations" contains non-Relation: {}'.format(relation)
-            )
+            msg = f'Invalid return value from materialization, "relations" contains non-Relation: {relation}'
             raise CompilationError(msg, node=model)
 
         assert isinstance(relation, BaseRelation)
@@ -244,19 +235,13 @@ class ModelRunner(CompileRunner):
 
     def _materialization_relations(self, result: Any, model) -> List[BaseRelation]:
         if isinstance(result, str):
-            msg = (
-                'The materialization ("{}") did not explicitly return a '
-                "list of relations to add to the cache.".format(str(model.get_materialization()))
-            )
+            msg = f'The materialization ("{str(model.get_materialization())}") did not explicitly return a list of relations to add to the cache.'
             raise CompilationError(msg, node=model)
 
         if isinstance(result, dict):
             return _validate_materialization_relations_dict(result, model)
 
-        msg = (
-            "Invalid return value from materialization, expected a dict "
-            'with key "relations", got: {}'.format(str(result))
-        )
+        msg = f'Invalid return value from materialization, expected a dict with key "relations", got: {str(result)}'
         raise CompilationError(msg, node=model)
 
     def execute(self, model, manifest):
@@ -273,7 +258,7 @@ class ModelRunner(CompileRunner):
 
         if "config" not in context:
             raise DbtInternalError(
-                "Invalid materialization context generated, missing config: {}".format(context)
+                f"Invalid materialization context generated, missing config: {context}"
             )
         context_config = context["config"]
 
@@ -361,7 +346,7 @@ class RunTask(CompileTask):
             )
             sql = self.get_hook_sql(adapter, hook, idx, num_hooks, extra_context)
 
-            hook_text = "{}.{}.{}".format(hook.package_name, hook_type, hook.index)
+            hook_text = f"{hook.package_name}.{hook_type}.{hook.index}"
             hook_meta_ctx = HookMetadata(hook, self.index_offset(idx))
             with UniqueID(hook.unique_id):
                 with hook_meta_ctx, startctx:

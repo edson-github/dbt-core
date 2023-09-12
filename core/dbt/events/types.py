@@ -350,9 +350,7 @@ class InternalDeprecation(WarnLevel):
         return "D008"
 
     def message(self):
-        extra_reason = ""
-        if self.reason:
-            extra_reason = f"\n{self.reason}"
+        extra_reason = f"\n{self.reason}" if self.reason else ""
         msg = (
             f"`{self.name}` is deprecated and will be removed in dbt-core version {self.version}\n\n"
             f"Adapter maintainers can resolve this deprecation by {self.suggested_action}. {extra_reason}"
@@ -609,33 +607,31 @@ class CacheAction(DebugLevel):
         ref_key = self.format_ref_key(self.ref_key)
         ref_key_2 = self.format_ref_key(self.ref_key_2)
         ref_key_3 = self.format_ref_key(self.ref_key_3)
-        ref_list = []
-        for rfk in self.ref_list:
-            ref_list.append(self.format_ref_key(rfk))
+        ref_list = [self.format_ref_key(rfk) for rfk in self.ref_list]
         if self.action == "add_link":
             return f"adding link, {ref_key} references {ref_key_2}"
         elif self.action == "add_relation":
             return f"adding relation: {ref_key}"
-        elif self.action == "drop_missing_relation":
-            return f"dropped a nonexistent relationship: {ref_key}"
         elif self.action == "drop_cascade":
             return f"drop {ref_key} is cascading to {ref_list}"
+        elif self.action == "drop_missing_relation":
+            return f"dropped a nonexistent relationship: {ref_key}"
         elif self.action == "drop_relation":
             return f"Dropping relation: {ref_key}"
-        elif self.action == "update_reference":
-            return (
-                f"updated reference from {ref_key} -> {ref_key_3} to "
-                f"{ref_key_2} -> {ref_key_3}"
-            )
-        elif self.action == "temporary_relation":
-            return f"old key {ref_key} not found in self.relations, assuming temporary"
         elif self.action == "rename_relation":
             return f"Renaming relation {ref_key} to {ref_key_2}"
+        elif self.action == "temporary_relation":
+            return f"old key {ref_key} not found in self.relations, assuming temporary"
         elif self.action == "uncached_relation":
             return (
                 f"{ref_key_2} references {ref_key} "
                 f"but {self.ref_key.database}.{self.ref_key.schema}"
                 "is not in the cache, skipping assumed external relation"
+            )
+        elif self.action == "update_reference":
+            return (
+                f"updated reference from {ref_key} -> {ref_key_3} to "
+                f"{ref_key_2} -> {ref_key_3}"
             )
         else:
             return ref_key
@@ -976,12 +972,7 @@ class SeedIncreased(WarnLevel):
         return "I052"
 
     def message(self) -> str:
-        msg = (
-            f"Found a seed ({self.package_name}.{self.name}) "
-            f">{MAXIMUM_SEED_SIZE_NAME} in size. The previous file was "
-            f"<={MAXIMUM_SEED_SIZE_NAME}, so it has changed"
-        )
-        return msg
+        return f"Found a seed ({self.package_name}.{self.name}) >{MAXIMUM_SEED_SIZE_NAME} in size. The previous file was <={MAXIMUM_SEED_SIZE_NAME}, so it has changed"
 
 
 class SeedExceedsLimitSamePath(WarnLevel):
@@ -989,12 +980,7 @@ class SeedExceedsLimitSamePath(WarnLevel):
         return "I053"
 
     def message(self) -> str:
-        msg = (
-            f"Found a seed ({self.package_name}.{self.name}) "
-            f">{MAXIMUM_SEED_SIZE_NAME} in size at the same path, dbt "
-            f"cannot tell if it has changed: assuming they are the same"
-        )
-        return msg
+        return f"Found a seed ({self.package_name}.{self.name}) >{MAXIMUM_SEED_SIZE_NAME} in size at the same path, dbt cannot tell if it has changed: assuming they are the same"
 
 
 class SeedExceedsLimitAndPathChanged(WarnLevel):
@@ -1002,12 +988,7 @@ class SeedExceedsLimitAndPathChanged(WarnLevel):
         return "I054"
 
     def message(self) -> str:
-        msg = (
-            f"Found a seed ({self.package_name}.{self.name}) "
-            f">{MAXIMUM_SEED_SIZE_NAME} in size. The previous file was in "
-            f"a different location, assuming it has changed"
-        )
-        return msg
+        return f"Found a seed ({self.package_name}.{self.name}) >{MAXIMUM_SEED_SIZE_NAME} in size. The previous file was in a different location, assuming it has changed"
 
 
 class SeedExceedsLimitChecksumChanged(WarnLevel):
@@ -1015,12 +996,7 @@ class SeedExceedsLimitChecksumChanged(WarnLevel):
         return "I055"
 
     def message(self) -> str:
-        msg = (
-            f"Found a seed ({self.package_name}.{self.name}) "
-            f">{MAXIMUM_SEED_SIZE_NAME} in size. The previous file had a "
-            f"checksum type of {self.checksum_name}, so it has changed"
-        )
-        return msg
+        return f"Found a seed ({self.package_name}.{self.name}) >{MAXIMUM_SEED_SIZE_NAME} in size. The previous file had a checksum type of {self.checksum_name}, so it has changed"
 
 
 class UnusedTables(WarnLevel):
@@ -1135,16 +1111,7 @@ class UnpinnedRefNewVersionAvailable(InfoLevel):
         return "I064"
 
     def message(self) -> str:
-        msg = (
-            f"While compiling '{self.node_info.node_name}':\n"
-            f"Found an unpinned reference to versioned model '{self.ref_node_name}' in project '{self.ref_node_package}'.\n"
-            f"Resolving to latest version: {self.ref_node_name}.v{self.ref_node_version}\n"
-            f"A prerelease version {self.ref_max_version} is available. It has not yet been marked 'latest' by its maintainer.\n"
-            f"When that happens, this reference will resolve to {self.ref_node_name}.v{self.ref_max_version} instead.\n\n"
-            f"  Try out v{self.ref_max_version}: {{{{ ref('{self.ref_node_package}', '{self.ref_node_name}', v='{self.ref_max_version}') }}}}\n"
-            f"  Pin to  v{self.ref_node_version}: {{{{ ref('{self.ref_node_package}', '{self.ref_node_name}', v='{self.ref_node_version}') }}}}\n"
-        )
-        return msg
+        return f"While compiling '{self.node_info.node_name}':\nFound an unpinned reference to versioned model '{self.ref_node_name}' in project '{self.ref_node_package}'.\nResolving to latest version: {self.ref_node_name}.v{self.ref_node_version}\nA prerelease version {self.ref_max_version} is available. It has not yet been marked 'latest' by its maintainer.\nWhen that happens, this reference will resolve to {self.ref_node_name}.v{self.ref_max_version} instead.\n\n  Try out v{self.ref_max_version}: {{{{ ref('{self.ref_node_package}', '{self.ref_node_name}', v='{self.ref_max_version}') }}}}\n  Pin to  v{self.ref_node_version}: {{{{ ref('{self.ref_node_package}', '{self.ref_node_name}', v='{self.ref_node_version}') }}}}\n"
 
 
 class DeprecatedModel(WarnLevel):
@@ -1152,7 +1119,7 @@ class DeprecatedModel(WarnLevel):
         return "I065"
 
     def message(self) -> str:
-        version = ".v" + self.model_version if self.model_version else ""
+        version = f".v{self.model_version}" if self.model_version else ""
         msg = (
             f"Model {self.model_name}{version} has passed its deprecation date of {self.deprecation_date}. "
             "This model should be disabled or removed."
@@ -1165,7 +1132,9 @@ class UpcomingReferenceDeprecation(WarnLevel):
         return "I066"
 
     def message(self) -> str:
-        ref_model_version = ".v" + self.ref_model_version if self.ref_model_version else ""
+        ref_model_version = (
+            f".v{self.ref_model_version}" if self.ref_model_version else ""
+        )
         msg = (
             f"While compiling '{self.model_name}': Found a reference to {self.ref_model_name}{ref_model_version}, "
             f"which is slated for deprecation on '{self.ref_model_deprecation_date}'. "
@@ -1187,7 +1156,9 @@ class DeprecatedReference(WarnLevel):
         return "I067"
 
     def message(self) -> str:
-        ref_model_version = ".v" + self.ref_model_version if self.ref_model_version else ""
+        ref_model_version = (
+            f".v{self.ref_model_version}" if self.ref_model_version else ""
+        )
         msg = (
             f"While compiling '{self.model_name}': Found a reference to {self.ref_model_name}{ref_model_version}, "
             f"which was deprecated on '{self.ref_model_deprecation_date}'. "
@@ -1222,7 +1193,11 @@ class ParseInlineNodeError(ErrorLevel):
         return "I069"
 
     def message(self) -> str:
-        return "Error while parsing node: " + self.node_info.node_name + "\n" + self.exc
+        return (
+            f"Error while parsing node: {self.node_info.node_name}"
+            + "\n"
+            + self.exc
+        )
 
 
 class SemanticValidationFailure(WarnLevel):
@@ -1575,10 +1550,7 @@ class LogTestResult(DynamicLevel):
             "warn": EventLevel.WARN,
             "error": EventLevel.ERROR,
         }
-        if status in level_lookup:
-            return level_lookup[status]
-        else:
-            return EventLevel.INFO
+        return level_lookup.get(status, EventLevel.INFO)
 
 
 # Skipped Q008, Q009, Q010
@@ -1700,10 +1672,7 @@ class LogFreshnessResult(DynamicLevel):
             "warn": EventLevel.WARN,
             "error": EventLevel.ERROR,
         }
-        if status in level_lookup:
-            return level_lookup[status]
-        else:
-            return EventLevel.INFO
+        return level_lookup.get(status, EventLevel.INFO)
 
 
 # Skipped Q019, Q020, Q021
@@ -1876,17 +1845,18 @@ class ShowNode(InfoLevel):
 
     def message(self) -> str:
         if self.output_format == "json":
-            if self.is_inline:
-                return json.dumps({"show": json.loads(self.preview)}, indent=2)
-            else:
-                return json.dumps(
-                    {"node": self.node_name, "show": json.loads(self.preview)}, indent=2
+            return (
+                json.dumps({"show": json.loads(self.preview)}, indent=2)
+                if self.is_inline
+                else json.dumps(
+                    {"node": self.node_name, "show": json.loads(self.preview)},
+                    indent=2,
                 )
+            )
+        if self.is_inline:
+            return f"Previewing inline node:\n{self.preview}"
         else:
-            if self.is_inline:
-                return f"Previewing inline node:\n{self.preview}"
-            else:
-                return f"Previewing node '{self.node_name}':\n{self.preview}"
+            return f"Previewing node '{self.node_name}':\n{self.preview}"
 
 
 class CompiledNode(InfoLevel):
@@ -1895,15 +1865,17 @@ class CompiledNode(InfoLevel):
 
     def message(self) -> str:
         if self.output_format == "json":
-            if self.is_inline:
-                return json.dumps({"compiled": self.compiled}, indent=2)
-            else:
-                return json.dumps({"node": self.node_name, "compiled": self.compiled}, indent=2)
+            return (
+                json.dumps({"compiled": self.compiled}, indent=2)
+                if self.is_inline
+                else json.dumps(
+                    {"node": self.node_name, "compiled": self.compiled}, indent=2
+                )
+            )
+        if self.is_inline:
+            return f"Compiled inline node is:\n{self.compiled}"
         else:
-            if self.is_inline:
-                return f"Compiled inline node is:\n{self.compiled}"
-            else:
-                return f"Compiled node '{self.node_name}' is:\n{self.compiled}"
+            return f"Compiled node '{self.node_name}' is:\n{self.compiled}"
 
 
 # =======================================================
@@ -2101,11 +2073,9 @@ class OpenCommand(InfoLevel):
         return "Z016"
 
     def message(self) -> str:
-        msg = f"""To view your profiles.yml file, run:
+        return f"""To view your profiles.yml file, run:
 
 {self.open_cmd} {self.profiles_dir}"""
-
-        return msg
 
 
 # We use events to create console output, but also think of them as a sequence of important and
@@ -2196,14 +2166,13 @@ class EndOfRunSummary(InfoLevel):
         error_plural = pluralize(self.num_errors, "error")
         warn_plural = pluralize(self.num_warnings, "warning")
         if self.keyboard_interrupt:
-            message = yellow("Exited because of keyboard interrupt")
+            return yellow("Exited because of keyboard interrupt")
         elif self.num_errors > 0:
-            message = red(f"Completed with {error_plural} and {warn_plural}:")
+            return red(f"Completed with {error_plural} and {warn_plural}:")
         elif self.num_warnings > 0:
-            message = yellow(f"Completed with {warn_plural}:")
+            return yellow(f"Completed with {warn_plural}:")
         else:
-            message = green("Completed successfully")
-        return message
+            return green("Completed successfully")
 
 
 # Skipped Z031, Z032, Z033
